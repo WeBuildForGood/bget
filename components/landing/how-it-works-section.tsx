@@ -104,7 +104,7 @@ export function HowItWorksSection() {
           }`}>
             <img
               src="/images/tree.png"
-              alt=""
+              alt="Abstract tree graphic representing growth and connections"
               aria-hidden="true"
               className="absolute bottom-0 left-0 w-full h-full object-contain object-bottom"
             />

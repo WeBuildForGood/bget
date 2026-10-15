@@ -61,7 +61,11 @@ export async function handleProjects(request, env, ctx, url) {
 
   // The showcase index is a static page.
   if (pathname === "/projects") {
-    return env.ASSETS.fetch(request);
+    // Static export generates `projects.html` not `projects/index.html`.
+    // Rewrite the request path so Assets binding finds the correct file.
+    const assetUrl = new URL(request.url);
+    assetUrl.pathname = "/projects.html";
+    return env.ASSETS.fetch(new Request(assetUrl, request));
   }
 
   const prefix = "/projects/";

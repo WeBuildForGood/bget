@@ -48,7 +48,7 @@ export function DevelopersSection() {
       >
         <img
           src="/images/developers-bg.png"
-          alt=""
+          alt="Diverse group of builders, thinkers, and makers in action"
           aria-hidden="true"
           className="w-full h-full object-cover object-left-top"
         />

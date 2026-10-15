@@ -27,7 +27,7 @@ type PageShellProps = {
 
 export function PageShell({ eyebrow, title, lead, image, meta, children }: PageShellProps) {
   return (
-    <main className="relative min-h-screen overflow-x-hidden">
+    <main id="main" className="relative min-h-screen overflow-x-hidden">
       <Navigation />
       <header className="relative pt-40 pb-20 lg:pt-52 lg:pb-28 border-b border-foreground/10 overflow-hidden">
         <DecorativeBackdrop variant="aurora" />

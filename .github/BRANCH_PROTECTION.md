@@ -4,11 +4,11 @@ This document outlines the required branch protection rules for the `bget-websit
 
 ## `main` branch
 
-- **Status checks required:** `test` must pass (all jobs in the `test` job: `npm ci`, lint, `tsc --noEmit`, security audit (`npm audit`), and `npm run build`).
+- **Status checks required:** Must have `test` passing (status check named exactly `'test'`).
 - **Pull request reviews:** At least **1 review** is required before merging.
-- **Restrict pushes:** Only maintainers and CI can push directly (push via PR required).
+- **Restrict pushes:** **No direct push** — all changes must come via pull request.
 - **Require conversation resolution:** All conversations must be resolved.
-- **Require signed commits:** Optional but recommended (--optional enhancement).
+- **Require signed commits:** Optional but recommended.
 
 ## `staging` branch (optional)
 
@@ -20,5 +20,5 @@ This document outlines the required branch protection rules for the `bget-websit
 1. Go to **Settings → Branches** in the repository.
 2. Add a protection rule for `main`.
 3. Check the required status checks and select `test`.
-4. Set "Require pull request reviews before merging" to 1.
-5. Optionally enable "Restrict who can push to matching branches".
+4. Set "Require pull request reviews before merging" to **1**.
+5. Enable "Restrict who can push to matching branches" -> **No direct push allowed**.

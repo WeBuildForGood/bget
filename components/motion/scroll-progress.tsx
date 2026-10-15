@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 /** Thin progress bar pinned to the very top of the viewport. */
 export function ScrollProgress() {
   const [progress, setProgress] = useState(0);
-
+  
   useEffect(() => {
     let frame = 0;
     const update = () => {
@@ -27,10 +27,13 @@ export function ScrollProgress() {
     };
   }, []);
 
+  // Hide on reduced motion
+  const prefersReduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)")?.matches || false;
+  
   return (
     <div className="fixed inset-x-0 top-0 z-[60] h-px bg-transparent" aria-hidden="true">
       <div
-        className="h-full origin-left bg-[#eca8d6]"
+        className={`h-full origin-left bg-${prefersReduced ? "transparent" : "#eca8d6"}`}
         style={{ transform: `scaleX(${progress})`, transition: "transform 120ms linear" }}
       />
     </div>

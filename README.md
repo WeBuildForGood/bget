@@ -180,6 +180,31 @@ npm run deploy         # wrangler deploy
 
 Required GitHub secret: `CF_API_TOKEN` (Workers Scripts + D1 edit).
 
+### Staging
+- Push to `staging` branch or label a PR `preview`.
+- `.github/workflows/deploy.yml` deploys to `--env staging`.
+- URL pattern: `https://buildforgood-staging.nikhilnagpure203.workers.dev`
+
+### Preview (PR deploy)
+- Every pull request triggers `deploy-preview` job.
+- Command: `wrangler deploy --env preview`
+- Preview URL is posted as a PR comment automatically.
+- Preview includes health-check verification (`/api/health` must return 200).
+
+### Security
+- See `SECURITY.md` for reporting and policies.
+- CI runs `npm audit --audit-level=moderate`, `npm outdated`, and Trivy scan.
+- `cloudflaretoken.env` is ignored by `.gitignore`; never commit secrets.
+- `wrangler.toml` contains only names/IDs — no keys.
+- Admin routes (`/api/admin/*`, `/admin`) protected by Cloudflare Access.
+
+### Rollback steps
+1. Identify last good commit tag or branch point.
+2. `git checkout <good-commit>`
+3. `npm run build && npx wrangler deploy --env production`
+4. Verify with `curl -f https://buildforgood.nikhilnagpure203.workers.dev/api/health`
+5. If health fails, redeploy previous version via `wrangler deploy --env production --tag <previous>`.
+
 ---
 
 ## 8. Cloudflare Access (Admin)

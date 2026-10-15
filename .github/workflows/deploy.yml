@@ -1,3 +1,7 @@
+# Rollback mechanism: If a deployment fails health check, revert using previous
+# worker version via wrangler rollback or redeploy previous commit.
+# Steps: 1) Find last known good commit. 2) Run npx wrangler deploy from that tag.
+# For production, use `wrangler deploy --env production --tag <previous>`.
 name: CI/CD
 
 on:
@@ -16,27 +20,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
+      
       - name: Install dependencies
         run: npm ci
-
+      
       - name: Run linter
         run: npm run lint
-
+      
       - name: Run type-check
         run: npx tsc --noEmit
-
+      
       - name: Security audit
         run: npm audit --audit-level=moderate
-
+      
       - name: Build
-        run: npm run build
-
+        run: |
+          set -e
+          START_TIME=$(date +%s)
+          npm run build
+          END_TIME=$(date +%s)
+          BUILD_TIME=$((END_TIME - START_TIME))
+          echo "BUILD_TIME=${BUILD_TIME}s" >> $GITHUB_ENV
+          echo "Build completed in ${BUILD_TIME}s"
+          # Count assets and gzip stats
+          if [ -d "out" ]; then
+            ASSET_COUNT=$(find out -type f | wc -l)
+            TOTAL_SIZE=$(du -sh out | cut -f1)
+            echo "ASSET_COUNT=${ASSET_COUNT}" >> $GITHUB_ENV
+            echo "TOTAL_SIZE=${TOTAL_SIZE}" >> $GITHUB_ENV
+            # Gzip stats for top 10 files
+            echo "=== Gzip compression stats ==="
+            find out -type f -name "*.js" -o -name "*.css" -o -name "*.html" -o -name "*.json" | head -20 | while read f; do
+              ORIG=$(stat -c%s "$f")
+              GZIP=$(gzip -c "$f" | wc -c)
+              RATIO=$(echo "scale=1; $GZIP*100/$ORIG" | bc 2>/dev/null || echo "N/A")
+              echo "$f: ${ORIG}B -> ${GZIP}B (${RATIO}%)"
+            done
+          fi
+      
+      - name: Health check test
+        run: |
+          # Test health endpoint after build
+          curl -f http://localhost:3000/api/health || exit 1
+      
   deploy-production:
     name: Deploy to Production
     needs: test
@@ -45,23 +76,40 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
+      
       - name: Install dependencies
         run: npm ci
-
+      
       - name: Build
-        run: npm run build
-
+        run: |
+          set -e
+          START_TIME=$(date +%s)
+          npm run build
+          END_TIME=$(date +%s)
+          BUILD_TIME=$((END_TIME - START_TIME))
+          echo "Build completed in ${BUILD_TIME}s"
+          # Asset stats
+          if [ -d "out" ]; then
+            ASSET_COUNT=$(find out -type f | wc -l)
+            TOTAL_SIZE=$(du -sh out | cut -f1)
+            echo "Assets: ${ASSET_COUNT} files, ${TOTAL_SIZE} total"
+          fi
+      
       - name: Deploy to Cloudflare Workers (production)
         run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-
+      
+      - name: Post-deploy health check
+        run: |
+          # Test production health endpoint
+          curl -f https://buildforgood.nikhilnagpure203.workers.dev/api/health || (echo "Health check failed" && exit 1)
+      
   deploy-staging:
     name: Deploy to Staging
     needs: test
@@ -72,23 +120,39 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
+      
       - name: Install dependencies
         run: npm ci
-
+      
       - name: Build
-        run: npm run build
-
+        run: |
+          set -e
+          START_TIME=$(date +%s)
+          npm run build
+          END_TIME=$(date +%s)
+          BUILD_TIME=$((END_TIME - START_TIME))
+          echo "Build completed in ${BUILD_TIME}s"
+          if [ -d "out" ]; then
+            ASSET_COUNT=$(find out -type f | wc -l)
+            TOTAL_SIZE=$(du -sh out | cut -f1)
+            echo "Assets: ${ASSET_COUNT} files, ${TOTAL_SIZE} total"
+          fi
+      
       - name: Deploy to Cloudflare Workers (staging)
         run: npx wrangler deploy --env staging
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-
+      
+      - name: Post-deploy health check
+        run: |
+          # Test staging health endpoint
+          curl -f https://buildforgood-staging.nikhilnagpure203.workers.dev/api/health || (echo "Health check failed" && exit 1)
+  
   deploy-preview:
     name: Deploy Preview
     needs: test
@@ -97,18 +161,29 @@ jobs:
     environment: preview
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
+      
       - name: Install dependencies
         run: npm ci
-
+      
       - name: Build
-        run: npm run build
-
+        run: |
+          set -e
+          START_TIME=$(date +%s)
+          npm run build
+          END_TIME=$(date +%s)
+          BUILD_TIME=$((END_TIME - START_TIME))
+          echo "Build completed in ${BUILD_TIME}s"
+          if [ -d "out" ]; then
+            ASSET_COUNT=$(find out -type f | wc -l)
+            TOTAL_SIZE=$(du -sh out | cut -f1)
+            echo "Assets: ${ASSET_COUNT} files, ${TOTAL_SIZE} total"
+          fi
+      
       - name: Deploy to Cloudflare Workers (preview)
         id: deploy-preview
         run: |
@@ -122,9 +197,9 @@ jobs:
             URL="https://${{ github.event.repository.name }}-preview.${{ secrets.CF_ACCOUNT_ID || 'workers.dev' }}"
           fi
           echo "preview-url=$URL" >> "$GITHUB_OUTPUT"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-
+          # Check preview health
+          curl -f "$URL/api/health" || (echo "Preview health check failed" && exit 1)
+        
       - name: Post preview link on PR
         if: success()
         uses: actions/github-script@v7
@@ -135,5 +210,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🚀 **Preview Deployment**\n\nPreview URL: ${previewUrl}\n\nThis preview was deployed from pull request #${context.issue.number}. Deployed by GitHub Actions.`
+              body: `🚀 **Preview Deployment**\n\nPreview URL: ${previewUrl}\n\nThis preview was deployed from pull request #${context.issue.number}. Deployed by GitHub Actions.\n\n✅ Health check passed`
             })

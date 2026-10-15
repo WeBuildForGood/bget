@@ -17,21 +17,9 @@ binding = "ASSETS"
 not_found_handling = "404-page"
 # Worker runs first for the API and for project detail pages (which are
 # rendered from D1 for SEO); everything else is served from the static export.
-run_worker_first = ["/api/*", "/projects", "/projects/*"]
+run_worker_first = ["/api/*", "/projects/*"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "buildforgood-forms"
 database_id = "e06265a9-0b99-41d2-82fc-09c0d54d1328"
-
-[env.production]
-# Production binding – serves the static export to Cloudflare Workers
-# with the ASSETS binding for the built site.
-
-binding = "ASSETS"
-
-[env.staging]
-# Staging binding – same as production but can be customized for staging
-# (e.g., different D1 database, different worker name, etc.)
-
-binding = "ASSETS"

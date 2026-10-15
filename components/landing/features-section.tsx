@@ -211,7 +211,7 @@ export function FeaturesSection() {
             <div className="hidden lg:block relative w-[42%] shrink-0 overflow-hidden">
               <img
                 src="/images/feature-large.png"
-                alt=""
+                alt="Feature illustration - multidisciplinary team collaboration"
                 aria-hidden="true"
                 className="absolute inset-0 w-full h-full object-cover object-center"
                 style={{ transform: "scaleX(-1)" }}

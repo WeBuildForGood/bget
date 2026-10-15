@@ -84,7 +84,7 @@ export function IntegrationsSection() {
       }`}>
         <img
           src="/images/connection.png"
-          alt=""
+          alt="Connected network of people and disciplines"
           aria-hidden="true"
           className="w-full h-auto object-cover"
         />

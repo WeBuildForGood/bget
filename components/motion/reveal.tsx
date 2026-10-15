@@ -88,6 +88,7 @@ export function RevealText({
   delay = 0,
   stagger = 55,
   blur = 12,
+  reducedStagger = 10,
 }: {
   text: string;
   as?: "span" | "h1" | "h2" | "h3" | "p";
@@ -95,9 +96,13 @@ export function RevealText({
   delay?: number;
   stagger?: number;
   blur?: number;
+  reducedStagger?: number;
 }) {
   const { ref, inView } = useInView<HTMLElement>();
   const words = text.split(" ");
+  const isReducedMotion = useReducedMotion();
+  const actualStagger = isReducedMotion ? reducedStagger : stagger;
+  
   return (
     <Tag ref={ref as never} className={className} aria-label={text}>
       {words.map((word, i) => (
@@ -109,7 +114,7 @@ export function RevealText({
             transitionProperty: "opacity, filter, transform",
             transitionDuration: "750ms",
             transitionTimingFunction: EASE,
-            transitionDelay: `${delay + i * stagger}ms`,
+            transitionDelay: `${delay + i * actualStagger}ms`,
             opacity: inView ? 1 : 0,
             filter: inView ? "blur(0px)" : `blur(${blur}px)`,
             transform: inView ? "none" : "translate3d(0, 0.45em, 0)",
@@ -121,4 +126,22 @@ export function RevealText({
       ))}
     </Tag>
   );
+}
+
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(media.matches);
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      setReduced(e.matches);
+    };
+    
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, []);
+  
+  return reduced;
 }

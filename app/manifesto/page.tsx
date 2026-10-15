@@ -15,20 +15,20 @@ export const metadata: Metadata = pageMetadata({
 });
 
 const whatWeDo = [
-  { k: "Build", v: "Software, startups, research, open source, hardware, creative work — real things that solve real problems." },
-  { k: "Grow", v: "Technically, intellectually, physically, emotionally, socially. We do not separate the engineer from the human." },
-  { k: "Evolve", v: "We challenge our own assumptions, take criticism without fragility, and become better thinkers than we were last month." },
-  { k: "Together", v: "We collaborate instead of competing destructively. Someone else's win is information, not a threat." },
-  { k: "Impact", v: "We measure success by what leaves the world better than we found it — people, society, and nature." },
+  { k: "Build", v: "Ship software, startups, research, open source, hardware, creative work — real things that solve real problems." },
+  { k: "Grow", v: "Technically, intellectually, physically, emotionally, socially. We do not separate the builder from the human." },
+  { k: "Evolve", v: "Challenge your own assumptions, take criticism without fragility, become a better thinker than you were last month." },
+  { k: "Together", v: "Collaborate instead of competing destructively. Someone else's win is information, not a threat." },
+  { k: "Impact", v: "Measure success by what leaves the world better than we found it — people, society, and nature." },
   { k: "Harmoniously", v: "Ambition without cruelty. Competition without hatred. Disagreement without disrespect." },
 ];
 
 const beliefs = [
-  "Our actions matter, even when nobody is watching. Integrity is what you do in the dark.",
-  "Intellectual humility and high ambition belong together. \u201cI don't know — let's figure it out\u201d is the most powerful sentence in any room.",
-  "Character is a prerequisite, not a bonus. A brilliant person who manipulates, humiliates, or exploits others does not belong here.",
-  "We are not a résumé club. Struggling out loud is respected here; pretending not to struggle is not.",
-  "The first ten set the tone for the next thousand. We would rather stay small and excellent than grow fast and become ordinary.",
+  "Act with integrity when nobody is watching — that is what character means.",
+  "Say \"I don't know — let's figure it out.\" Intellectual humility and high ambition belong together.",
+  "Character is a prerequisite, not a bonus. Brilliance used to manipulate, humiliate, or exploit has no place here.",
+  "Struggle out loud — pretending not to struggle earns no respect here.",
+  "The first ten set the tone for the next thousand. We stay small and excellent rather than grow fast and become ordinary.",
 ];
 
 const nots = [
@@ -76,7 +76,7 @@ export default function ManifestoPage() {
       <PageShell
         eyebrow="Manifesto"
         title={<>Capability without character<br />is not enough.</>}
-        lead="We are a community of ambitious, capable people across every discipline who believe the engineer cannot be separated from the human. Anyone can learn to code. Fewer learn to think clearly. Fewest combine skill with humility, ambition with kindness."
+        lead="We build with our hands and our minds — and we refuse to separate the two. Skill without humility, ambition without kindness, and capability without character: none of these make anything worth keeping. Build For Good is where exceptional people across every discipline show up for both."
         image={{ src: "/images/orbit.svg", alt: "" }}
         meta={["Character first", "Multidisciplinary", "Global by design"]}
       >
