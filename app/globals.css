@@ -4,6 +4,10 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Render native UI (scrollbars, form controls, system colours) in dark mode
+     and advertise the scheme to the browser. Matches the <meta name="color-scheme">
+     viewport hint so there is no flash of light native chrome. */
+  color-scheme: dark;
   --background: oklch(0.06 0.008 260);
   --foreground: oklch(0.94 0.005 90);
   --card: oklch(0.09 0.008 260);
@@ -37,12 +41,22 @@
   --sidebar-accent-foreground: oklch(0.94 0.005 90);
   --sidebar-border: oklch(0.18 0.008 260);
   --sidebar-ring: oklch(0.55 0.015 90);
+
+  /* Safe-area insets for notch / home-indicator aware fixed UI. Zero on
+     devices (and desktop browsers) that report no inset. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 @theme inline {
-  --font-sans: var(--font-instrument), 'Instrument Sans', system-ui, sans-serif;
+  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), 'JetBrains Mono', monospace;
-  --font-display: var(--font-instrument-serif), 'Instrument Serif', Georgia, serif;
+  /* Headings/big numbers use the same sans stack as body copy. Tailwind's
+     `inline` option copies this value straight into the `.font-display`
+     utility, so `var(--font-inter)` resolves where the utility is applied. */
+  --font-display: var(--font-inter), 'Inter', system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -90,12 +104,36 @@
   }
   html {
     scroll-behavior: smooth;
+    /* Keep typography as authored: stop iOS Safari inflating text on
+       orientation change or in "reader"-style rendering. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
 
 @layer utilities {
+  /* Visually hidden but available to screen readers. Tailwind v4 ships an
+     equivalent `.sr-only`; this explicit definition keeps the utility present
+     even if the framework's copy is ever tree-shaken or renamed. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Headings and large display numbers intentionally share the body sans stack.
+     Referencing the next/font variable at the point of use (rather than routing
+     through the theme variable) keeps this working regardless of Tailwind's
+     utility ordering. */
   .font-display {
-    font-family: var(--font-display);
+    font-family: var(--font-inter), "Inter", system-ui, sans-serif;
   }
   
   .text-stroke {
@@ -213,6 +251,19 @@
   .section-y {
     padding-top: 5.5rem;
     padding-bottom: 5.5rem;
+  }
+
+  /* Safe-area helpers for UI that hugs the viewport edges (fixed bottom bars,
+     full-bleed shells). `max()` keeps a floor of 0 where the inset is absent. */
+  .pb-safe {
+    padding-bottom: max(var(--safe-bottom), 0px);
+  }
+  .pt-safe {
+    padding-top: max(var(--safe-top), 0px);
+  }
+  .px-safe {
+    padding-left: max(var(--safe-left, 0px), 0px);
+    padding-right: max(var(--safe-right, 0px), 0px);
   }
 
   /* Animated underline for inline + nav links */
@@ -431,20 +482,66 @@
   }
 
   :focus-visible {
-    outline: none;
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
-  /* Consistent, visible keyboard focus everywhere */
+  /* Consistent, visible, high-contrast keyboard focus everywhere.
+     The base `*` rule paints the ring at 50% opacity, which is too faint to
+     meet contrast expectations once it sits on a border or image — reinforce
+     it on the interactive elements that need it most, including custom
+     ARIA widgets (menu items, options, tabs) that set `outline-none` and rely
+     on focus being re-stated. */
   a:focus-visible,
   button:focus-visible,
   [role="button"]:focus-visible,
+  [role="link"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  [role="menuitemcheckbox"]:focus-visible,
+  [role="menuitemradio"]:focus-visible,
+  [role="option"]:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="checkbox"]:focus-visible,
+  [role="radio"]:focus-visible,
+  [role="switch"]:focus-visible,
+  [tabindex]:focus-visible,
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible,
   summary:focus-visible {
-    outline: 2px solid rgba(236, 168, 214, 0.75);
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 4px;
+  }
+
+  /* Rag long-form copy a little more evenly; keep display headings balanced.
+     The explicit `.text-balance` / `.text-pretty` utilities still win when a
+     component opts in. `:where()` keeps specificity at zero so any utility
+     override is trivial. */
+  :where(h1, h2, h3, h4) {
+    text-wrap: balance;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+  }
+  :where(p, li) {
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+  img, video, canvas, svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Anchor targets (e.g. "#apply", "#submit") and focused controls must clear
+     the fixed site header instead of hiding underneath it when scrolled to —
+     important when keyboard focus jumps to the first invalid field. */
+  :where([id]) {
+    scroll-margin-top: 6rem;
+  }
+  :where(input, select, textarea) {
+    scroll-margin-top: 6rem;
   }
 }
 
@@ -457,5 +554,33 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile / touch refinements (additive)                               */
+/* ------------------------------------------------------------------ */
+
+/* iOS Safari zooms the whole viewport when a text control whose font-size is
+   below 16px receives focus — a jarring "the page jumped" effect. Keep every
+   text-like control at 16px on small screens. Deliberately unlayered so it
+   wins over any utility font size; checkbox/radio/range/file are excluded as
+   they never trigger the zoom and are sized separately. */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select:not([multiple]),
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Comfortable tap targets for standalone, in-flow call-to-action links on
+   touch devices only (desktop layout is untouched). Links embedded inside a
+   sentence keep their natural inline box — WCAG 2.5.8 exempts inline text —
+   so prose ragging is unaffected. */
+@media (pointer: coarse) {
+  .link-underline.inline-flex,
+  .link-underline.inline-block {
+    min-height: 44px;
   }
 }

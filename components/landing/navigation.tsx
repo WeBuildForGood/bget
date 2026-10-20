@@ -11,6 +11,7 @@ const primaryLinks = [
   { name: "Problem Commons", href: "/problems"      },
   { name: "Activities",      href: "/activities"    },
   { name: "Membership",      href: "/membership"    },
+  { name: "Updates",         href: "/#updates"      },
 ];
 
 const moreLinks = [
@@ -28,6 +29,8 @@ export function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -35,6 +38,53 @@ export function Navigation() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Mobile drawer: lock body scroll, move focus in on open, restore on close,
+  // close on Escape, and keep Tab focus inside the drawer (a simple focus trap).
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const panel = menuPanelRef.current;
+    const focusables = panel
+      ? Array.from(
+          panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'),
+        ).filter((el) => el.offsetParent !== null || el === document.activeElement)
+      : [];
+    const focusTimer = window.setTimeout(() => focusables[0]?.focus(), 60);
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMobileMenuOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const list = [
+        ...(menuToggleRef.current ? [menuToggleRef.current] : []),
+        ...focusables,
+      ];
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey && (active === first || !active || !list.includes(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = originalOverflow;
+      previouslyFocused?.focus?.();
+    };
+  }, [isMobileMenuOpen]);
 
   useEffect(() => {
     if (!isMoreOpen) return;
@@ -61,12 +111,12 @@ export function Navigation() {
 
   return (
     <header
-      className={`fixed z-50 transition-all duration-500 ${
+      className={`fixed z-50 transition-all duration-500 pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] ${
         isScrolled ? "top-4 left-4 right-4" : "top-0 left-0 right-0"
       }`}
     >
       <nav
-        className={`mx-auto transition-all duration-500 ${
+        className={`relative z-50 mx-auto transition-all duration-500 ${
           isScrolled || isMobileMenuOpen
             ? "bg-background/80 backdrop-blur-xl border border-foreground/10 rounded-2xl shadow-lg max-w-[1200px]"
             : "bg-transparent max-w-[1400px]"
@@ -78,7 +128,7 @@ export function Navigation() {
           }`}
         >
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group shrink-0">
+          <Link href="/" className="flex items-center gap-2 group shrink-0 min-h-11">
             <span
               className={`font-display tracking-tight transition-all duration-500 ${
                 isScrolled ? "text-lg text-foreground" : "text-xl text-white"
@@ -88,7 +138,7 @@ export function Navigation() {
             </span>
             <span
               className={`font-mono transition-all duration-500 ${
-                isScrolled ? "text-[10px] mt-0.5 text-muted-foreground" : "text-xs mt-1 text-white/60"
+                isScrolled ? "text-xs mt-0.5 text-muted-foreground" : "text-xs mt-1 text-white/60"
               }`}
             >
               TM
@@ -171,11 +221,14 @@ export function Navigation() {
 
           {/* Mobile Menu Button */}
           <button
+            ref={menuToggleRef}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`md:hidden p-2 transition-colors duration-500 ${
+            className={`md:hidden inline-flex items-center justify-center p-2 min-h-11 min-w-11 -mr-2 transition-colors duration-500 ${
               isScrolled || isMobileMenuOpen ? "text-foreground" : "text-white"
             }`}
-            aria-label="Toggle menu"
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-menu"
           >
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -184,20 +237,32 @@ export function Navigation() {
 
       {/* Mobile Menu - Full Screen Overlay */}
       <div
-        className={`md:hidden fixed inset-0 bg-background z-40 transition-all duration-500 ${
+        id="mobile-menu"
+        aria-hidden={!isMobileMenuOpen}
+        inert={!isMobileMenuOpen}
+        className={`md:hidden fixed inset-0 bg-background z-40 transition-all duration-500 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] ${
           isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         style={{ top: 0 }}
       >
-        <div className="flex flex-col h-full px-8 pt-28 pb-8 overflow-y-auto">
+        <div
+          ref={menuPanelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Site menu"
+          className="flex flex-col h-full px-6 sm:px-8 pt-24 pb-8 overflow-y-auto"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setIsMobileMenuOpen(false);
+          }}
+        >
           {/* Navigation Links */}
-          <div className="flex-1 flex flex-col justify-center gap-6 py-8">
+          <div className="flex-1 flex flex-col justify-start gap-1 py-4">
             {mobileLinks.map((link, i) => (
               <Link
                 key={link.name}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`text-4xl font-display text-foreground hover:text-muted-foreground transition-all duration-500 ${
+                className={`inline-flex items-center min-h-11 text-3xl min-[380px]:text-4xl font-display text-foreground hover:text-muted-foreground transition-all duration-500 ${
                   isMobileMenuOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
                 }`}
                 style={{ transitionDelay: isMobileMenuOpen ? `${i * 50}ms` : "0ms" }}

@@ -12,6 +12,7 @@ jobs:
   deploy-preview:
     name: Deploy Preview Worker
     runs-on: ubuntu-latest
+    if: vars.ENABLE_PREVIEW_DEPLOY == 'true'
     environment: preview
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +49,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const previewUrl = '${{ steps.deploy-preview.outputs.preview-url }}' || 'https://preview.buildforgood.workers.dev';
+            const previewUrl = '${{ steps.deploy-preview.outputs.preview-url }}' || '(preview URL unavailable — see the "Deploy to Cloudflare Workers (preview)" step logs)';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

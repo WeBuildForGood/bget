@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageShell, Section, Eyebrow } from "@/components/site/page-shell";
 import { Reveal } from "@/components/motion/reveal";
 import { Button } from "@/components/ui/button";
-import { JsonLd, webPageLd } from "@/components/seo/json-ld";
+import { JsonLd, breadcrumbLd, webPageLd } from "@/components/seo/json-ld";
 import { pageMetadata, SITE } from "@/lib/site";
 
 export const metadata: Metadata = pageMetadata({
@@ -75,12 +75,16 @@ export default function FoundersPage() {
             type: "AboutPage",
           }),
           founderLd,
+          breadcrumbLd([
+            { name: "Home", path: "/" },
+            { name: "Founders", path: "/founders" },
+          ]),
         ]}
       />
       <PageShell
         eyebrow="The people behind it"
         title="Founders"
-        lead="One person started Build For Good. It is not meant to stay one person's work. Below is who founded it, what that role is actually accountable for, and where the doors are still open."
+        lead="One person started Build For Good. It's not meant to stay one person's work. Here is who founded it, what that role is accountable for, and where the doors are still open."
       >
         <Section
           eyebrow="Founder & Steward"
@@ -93,7 +97,7 @@ export default function FoundersPage() {
                   <div className="aurora pointer-events-none absolute inset-0" aria-hidden="true" />
                   <span className="relative font-display text-7xl text-foreground">NN</span>
                 </div>
-                <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="mt-4 font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
                   Nikhil Nagpure — Founder &amp; Steward
                 </p>
               </div>
@@ -126,13 +130,13 @@ export default function FoundersPage() {
               </Reveal>
 
               <Reveal y={20} delay={140}>
-                <div className="card-glow border border-foreground/10 p-8">
-                  <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                <div className="card-glow border border-foreground/10 p-6 sm:p-8">
+                  <h3 className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
                     What he believes
                   </h3>
                   <ul className="mt-6 space-y-4 text-muted-foreground leading-relaxed">
                     <li>
-                      Capability is rarely the bottleneck. Trust and coordination are.
+                      Capability is rarely the bottleneck — trust and coordination are.
                     </li>
                     <li>
                       Conduct is a better signal than credentials — a promise kept beats a
@@ -169,34 +173,34 @@ export default function FoundersPage() {
         <Section
           eyebrow="How the founding team works"
           title="Titles describe accountability, not status."
-          intro="Every role below names what it owns and what it answers for. If a role has no holder, that is written plainly — we would rather show an honest gap than a borrowed name."
+          intro="Every role names what it owns and what it answers for. If a role has no holder, that's written plainly — an honest gap beats a borrowed name."
           muted
         >
           <div className="grid md:grid-cols-2 gap-px bg-foreground/10 border border-foreground/10">
             {roles.map((r, i) => (
-              <Reveal key={r.title} y={20} delay={i * 60} className="card-glow bg-background p-8 lg:p-10">
+              <Reveal key={r.title} y={20} delay={i * 60} className="card-glow bg-background p-6 sm:p-8 lg:p-10">
                 <div className="flex items-start justify-between gap-4">
                   <h3 className="text-2xl md:text-3xl font-display">{r.title}</h3>
                   <span
-                    className={`mt-1 shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] ${
+                    className={`mt-1 shrink-0 font-mono text-xs uppercase tracking-[0.18em] ${
                       r.open ? "text-[#eca8d6]" : "text-muted-foreground"
                     }`}
                   >
                     {r.open ? "Open" : "Filled"}
                   </span>
                 </div>
-                <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="mt-3 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
                   {r.holder}
                 </p>
                 <dl className="mt-6 space-y-5">
                   <div>
-                    <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-foreground">
+                    <dt className="font-mono text-xs uppercase tracking-[0.15em] text-foreground">
                       Owns
                     </dt>
                     <dd className="mt-2 text-muted-foreground leading-relaxed">{r.owns}</dd>
                   </div>
                   <div>
-                    <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-foreground">
+                    <dt className="font-mono text-xs uppercase tracking-[0.15em] text-foreground">
                       Accountable for
                     </dt>
                     <dd className="mt-2 text-muted-foreground leading-relaxed">
@@ -248,15 +252,15 @@ export default function FoundersPage() {
           <Reveal y={20} delay={180}>
             <div className="mt-16 flex flex-wrap items-center gap-4 border-t border-foreground/10 pt-8">
               <Eyebrow>Read next</Eyebrow>
-              <Link href="/manifesto" className="link-underline text-muted-foreground hover:text-foreground">
+              <Link href="/manifesto" className="link-underline inline-flex min-h-11 items-center text-muted-foreground hover:text-foreground">
                 The manifesto
               </Link>
               <span className="text-muted-foreground/40">·</span>
-              <Link href="/values" className="link-underline text-muted-foreground hover:text-foreground">
+              <Link href="/values" className="link-underline inline-flex min-h-11 items-center text-muted-foreground hover:text-foreground">
                 How we behave
               </Link>
               <span className="text-muted-foreground/40">·</span>
-              <Link href="/about" className="link-underline text-muted-foreground hover:text-foreground">
+              <Link href="/about" className="link-underline inline-flex min-h-11 items-center text-muted-foreground hover:text-foreground">
                 About Build For Good
               </Link>
             </div>

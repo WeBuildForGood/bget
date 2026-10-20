@@ -7,7 +7,8 @@ export type CollectionKey =
   | "projects"
   | "contact_messages"
   | "suggestions"
-  | "feedback";
+  | "feedback"
+  | "subscribers";
 
 /** A single row. Type-specific columns are unknown and read defensively. */
 export type AdminRecord = {
@@ -82,7 +83,7 @@ export const COLLECTIONS: CollectionConfig[] = [
     key: "problems",
     label: "Problems",
     noun: "problem",
-    statuses: ["new", "framed", "parked", "declined", "active"],
+    statuses: ["new", "framed", "parked", "declined", "active", "solved"],
     primaryKey: "title",
     columns: [
       { key: "submitter_name", label: "Submitter" },
@@ -92,6 +93,7 @@ export const COLLECTIONS: CollectionConfig[] = [
     quickActions: [
       { label: "Frame", status: "framed", tone: "positive" },
       { label: "Activate", status: "active", tone: "positive" },
+      { label: "Solve", status: "solved", tone: "positive" },
       { label: "Park", status: "parked", tone: "neutral" },
       { label: "Decline", status: "declined", tone: "negative" },
     ],
@@ -166,47 +168,26 @@ export const COLLECTIONS: CollectionConfig[] = [
       { label: "Archive", status: "archived", tone: "neutral" },
     ],
   },
+  {
+    key: "subscribers",
+    label: "Subscribers",
+    noun: "subscriber",
+    statuses: ["active", "unsubscribed", "bounced"],
+    primaryKey: "email",
+    columns: [
+      { key: "name", label: "Name" },
+      { key: "source", label: "Source" },
+      { key: "created_at", label: "Subscribed" },
+    ],
+    quickActions: [
+      { label: "Unsubscribe", status: "unsubscribed", tone: "negative" },
+    ],
+  },
 ];
 
 export const COLLECTIONS_BY_KEY = Object.fromEntries(
   COLLECTIONS.map((c) => [c.key, c]),
 ) as Record<CollectionKey, CollectionConfig>;
-
-/** Fetch wrapper that always sends Access cookies and never throws on bad JSON. */
-export async function apiFetch(
-  path: string,
-  init?: RequestInit,
-): Promise<{ res: Response; data: any }> {
-  let res: Response;
-  try {
-    res = await fetch(path, {
-      credentials: "include",
-      ...init,
-      headers: {
-        accept: "application/json",
-        ...((init?.headers as Record<string, string> | undefined) ?? {}),
-      },
-    });
-  } catch {
-    // Surface network failures as a synthetic error response (invalid status
-    // codes like 0 cannot be used with the Response constructor).
-    return {
-      res: new Response(null, { status: 500 }),
-      data: { ok: false, error: "network_error" },
-    };
-  }
-  let data: any = null;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-  return { res, data };
-}
-
-export function isUnauthorized(res: Response): boolean {
-  return res.status === 401 || res.status === 403;
-}
 
 /** "in progress" -> "In Progress" */
 export function labelize(value: string): string {
@@ -284,6 +265,7 @@ export function statusTone(status?: string | null): string {
     case "actioned":
     case "replied":
     case "framed":
+    case "solved":
     case "planned":
       return "border-[#eca8d6]/40 bg-[#eca8d6]/10 text-[#eca8d6]";
     case "declined":
@@ -312,6 +294,7 @@ export function statusDot(status?: string | null): string {
     case "actioned":
     case "replied":
     case "framed":
+    case "solved":
     case "planned":
       return "bg-[#eca8d6]";
     case "declined":

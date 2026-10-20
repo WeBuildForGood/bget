@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ArrowRight, Check, Zap } from "lucide-react";
+import ApplyModal from "@/components/membership/apply-modal";
+import ProblemSubmitModal from "@/components/membership/problem-submit-modal";
 
 const plans = [
   {
     name: "Bring a problem",
     description: "Open to anyone, anywhere, in any field",
-    price: { monthly: 0, annual: 0 },
     features: [
       "Any problem, any sector",
       "A human answer within 72 hours",
@@ -15,14 +16,13 @@ const plans = [
       "Reviewed against public criteria",
       "Never shared unless you allow it",
     ],
-    cta: "Submit a problem",
-    href: "/problems#submit",
+    cta: "Start Here",
+    href: "/problems",
     highlight: false,
   },
   {
     name: "Join Build For Good",
     description: "For exceptional people who want to build together",
-    price: { monthly: 0, annual: 0 },
     features: [
       "Application → conversation → 30-day trial",
       "Character is the gate, not your CV",
@@ -30,14 +30,13 @@ const plans = [
       "Mentorship and genuine help",
       "One referral slot per quarter",
     ],
-    cta: "Apply to join",
+    cta: "Join Build For Good",
     href: "/membership#apply",
     highlight: true,
   },
   {
     name: "Build For Good Labs",
     description: "For the teams that form around a problem",
-    price: { monthly: null, annual: null },
     features: [
       "Multidisciplinary project teams",
       "Research, prototype, test, deploy",
@@ -52,8 +51,9 @@ const plans = [
 ];
 
 export function PricingSection() {
-  const [isAnnual, setIsAnnual] = useState(true);
   const [isVisible, setIsVisible] = useState(false);
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -69,16 +69,16 @@ export function PricingSection() {
   }, []);
 
   return (
-    <section id="pricing" ref={sectionRef} className="relative py-32 lg:py-40">
+    <section id="pricing" ref={sectionRef} className="relative py-20 lg:py-40">
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header - Dramatic offset */}
-        <div className="grid lg:grid-cols-12 gap-8 mb-20">
+        <div className="grid lg:grid-cols-12 gap-8 mb-12 lg:mb-20">
           <div className="lg:col-span-7">
             <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-8">
               <span className="w-12 h-px bg-foreground/30" />
               Three doors
             </span>
-            <h2 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
+            <h2 className={`text-4xl sm:text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 break-words ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
               Where would
@@ -87,16 +87,24 @@ export function PricingSection() {
             </h2>
           </div>
           
-          <div className="lg:col-span-5 relative p-0 h-96 lg:h-auto">
+          <div className="lg:col-span-5 relative p-0 h-64 sm:h-96 lg:h-auto">
             {/* Whale image */}
             <div className={`absolute inset-0 pointer-events-none transition-all duration-1000 delay-100 ${
               isVisible ? "opacity-100" : "opacity-0"
             }`}>
-              <img
-                src="/images/whale.png"
-                alt="Organic whale"
-                className="w-full h-full object-contain object-center"
-              />
+              <picture className="contents">
+                <source srcSet="/images/whale.avif" type="image/avif" />
+                <img
+                  src="/images/whale.webp"
+                  alt=""
+                  aria-hidden="true"
+                  width={1600}
+                  height={1031}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-full object-contain object-center"
+                />
+              </picture>
             </div>
 
           </div>
@@ -125,7 +133,7 @@ export function PricingSection() {
                   </div>
                 )}
 
-                <div className="p-8 lg:p-10">
+                <div className="p-6 sm:p-8 lg:p-10">
                   {/* Plan header */}
                   <div className="mb-8 pb-8 border-b border-foreground/10">
                     <span className="font-mono text-xs text-muted-foreground">
@@ -133,25 +141,6 @@ export function PricingSection() {
                     </span>
                     <h3 className="text-2xl lg:text-3xl font-display mt-2">{plan.name}</h3>
                     <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
-                  </div>
-
-                  {/* Price */}
-                  <div className="mb-8">
-                    {plan.price.monthly !== null ? (
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl lg:text-6xl font-display">
-                          ${isAnnual ? plan.price.annual : plan.price.monthly}
-                        </span>
-                        <span className="text-muted-foreground text-sm">/month</span>
-                      </div>
-                    ) : (
-                      <span className="text-4xl font-display">Custom</span>
-                    )}
-                    {plan.price.monthly !== null && plan.price.monthly > 0 && (
-                      <p className="text-xs text-muted-foreground mt-2 font-mono">
-                        {isAnnual ? "billed annually" : "billed monthly"}
-                      </p>
-                    )}
                   </div>
 
                   {/* Features */}
@@ -165,17 +154,43 @@ export function PricingSection() {
                   </ul>
 
                   {/* CTA */}
-                  <a
-                    href={plan.href}
-                    className={`w-full py-4 flex items-center justify-center gap-2 text-sm font-medium transition-all group ${
-                      plan.highlight
-                        ? "bg-foreground text-background hover:bg-foreground/90"
-                        : "border border-foreground/20 text-foreground hover:border-foreground hover:bg-foreground/5"
-                    }`}
-                  >
-                    {plan.cta}
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </a>
+                  {index === 0 ? (
+                    <button
+                      onClick={() => setIsSubmitOpen(true)}
+                      className={`w-full py-4 flex items-center justify-center gap-2 text-sm font-medium transition-all group ${
+                        plan.highlight
+                          ? "bg-foreground text-background hover:bg-foreground/90"
+                          : "border border-foreground/20 text-foreground hover:border-foreground hover:bg-foreground/5"
+                      }`}
+                    >
+                      {plan.cta}
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    </button>
+                  ) : index === 1 ? (
+                    <button
+                      onClick={() => setIsApplyOpen(true)}
+                      className={`w-full py-4 flex items-center justify-center gap-2 text-sm font-medium transition-all group ${
+                        plan.highlight
+                          ? "bg-foreground text-background hover:bg-foreground/90"
+                          : "border border-foreground/20 text-foreground hover:border-foreground hover:bg-foreground/5"
+                      }`}
+                    >
+                      {plan.cta}
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    </button>
+                  ) : (
+                    <a
+                      href={plan.href}
+                      className={`w-full py-4 flex items-center justify-center gap-2 text-sm font-medium transition-all group ${
+                        plan.highlight
+                          ? "bg-foreground text-background hover:bg-foreground/90"
+                          : "border border-foreground/20 text-foreground hover:border-foreground hover:bg-foreground/5"
+                      }`}
+                    >
+                      {plan.cta}
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    </a>
+                  )}
                 </div>
               </div>
             ))}
@@ -183,24 +198,24 @@ export function PricingSection() {
         </div>
 
         {/* Bottom note with icons */}
-        <div className={`mt-20 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 pt-12 border-t border-foreground/10 transition-all duration-1000 delay-500 ${
+        <div className={`mt-12 lg:mt-20 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 pt-8 lg:pt-12 border-t border-foreground/10 transition-all duration-1000 delay-500 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
-          <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2">
+          <div className="flex flex-wrap gap-4 sm:gap-6 text-sm text-muted-foreground">
+            <span className="flex items-center gap-2 min-h-11">
               <Check className="w-4 h-4 text-[#eca8d6]" />
               Character before capability
             </span>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 min-h-11">
               <Check className="w-4 h-4 text-[#eca8d6]" />
               Contribute more than you take
             </span>
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 min-h-11">
               <Check className="w-4 h-4 text-[#eca8d6]" />
               Leave it better than you found it
             </span>
           </div>
-          <a href="/manifesto" className="text-sm underline underline-offset-4 hover:text-foreground transition-colors">
+          <a href="/manifesto" className="inline-flex items-center text-sm underline underline-offset-4 hover:text-foreground transition-colors min-h-11">
             Read the full manifesto
           </a>
         </div>
@@ -212,6 +227,10 @@ export function PricingSection() {
           -webkit-text-fill-color: transparent;
         }
       `}</style>
+
+      {/* Modals */}
+      <ApplyModal open={isApplyOpen} onOpenChange={setIsApplyOpen} />
+      <ProblemSubmitModal open={isSubmitOpen} onOpenChange={setIsSubmitOpen} />
     </section>
   );
 }

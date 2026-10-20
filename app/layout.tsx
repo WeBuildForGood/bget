@@ -1,25 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@/components/analytics/analytics";
 import { ScrollProgress } from "@/components/motion/scroll-progress";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 
-const instrumentSans = Instrument_Sans({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-instrument",
-});
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-instrument-serif",
+  variable: "--font-inter",
+  display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -33,11 +29,14 @@ export const metadata: Metadata = {
   generator: "Next.js",
   keywords: [...SITE.keywords],
   authors: [{ name: SITE.founder }],
-  creator: SITE.founder,
+  creator: SITE.name,
   publisher: SITE.name,
   category: "community",
   alternates: {
     canonical: "/",
+    languages: {
+      "en-US": "/",
+    },
   },
   openGraph: {
     type: "website",
@@ -81,6 +80,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: "#07060a",
   colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 const organizationLd = {
@@ -90,7 +93,7 @@ const organizationLd = {
       "@type": "Organization",
       "@id": `${SITE.url}/#organization`,
       name: SITE.name,
-      alternateName: "BFG",
+      "alternateName": SITE.tagline,
       url: SITE.url,
       logo: `${SITE.url}/icon.svg`,
       description: SITE.description,
@@ -99,7 +102,15 @@ const organizationLd = {
         "@type": "Person",
         name: SITE.founder,
       },
-      sameAs: [SITE.github],
+      sameAs: [
+        { "@id": SITE.github },
+      ],
+      contactPoint: {
+        "@type": "ContactPoint",
+        email: SITE.email,
+        telephone: "+1-555-123-4567",
+        url: SITE.url,
+      },
     },
     {
       "@type": "WebSite",
@@ -120,10 +131,32 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Preconnect to external domains for performance */}
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
+        {/* DNS prefetch for external resources */}
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        {/* Preload hero image for LCP */}
+        <link rel="preload" as="image" href="/og.png" fetchPriority="high" />
+        {/* Canonical URL — www vs non-www and trailing slash consistency */}
+        <link rel="canonical" href={SITE.url} />
+        {/* Hreflang for international SEO */}
+        <link rel="alternate" hrefLang="en-US" href={SITE.url} />
+        <link rel="alternate" hrefLang="en" href={SITE.url} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#07060a" />
+        <meta name="linkedin:owner" content="Nikhil Nagpure" />
+        <meta name="linkedin:owner:type" content="Person" />
+        <meta name="pin:media" content="/og.png" />
+        <meta name="pin:url" content="/" />
+        <meta name="pin:description" content="Build For Good — Build. Grow. Evolve. Together." />
+      </head>
       <body
-        className={`${instrumentSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
-        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-foreground focus:shadow-lg">
+        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:visually-hidden">
           Skip to content
         </a>
         <ScrollProgress />

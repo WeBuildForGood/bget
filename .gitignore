@@ -12,16 +12,22 @@
 
 # local-only credentials (never commit)
 cloudflaretoken.env
+cloudflareaccessshadownik.env
+*.env
+env/
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+.env*.local
 
 # misc
 .DS_Store
 *.pem
-.env
-.env*.local
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-# next dev auto-generated bootstrapping
-AGENTS.md

@@ -73,7 +73,7 @@ export function HowItWorksSection() {
     <section
       id="how-it-works"
       ref={sectionRef}
-      className="relative py-24 lg:py-32 bg-[oklch(0.09_0.01_260)] text-white overflow-hidden"
+      className="relative py-16 lg:py-32 bg-[oklch(0.09_0.01_260)] text-white overflow-hidden"
     >
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-white/[0.02] blur-[100px] pointer-events-none" />
 
@@ -82,14 +82,18 @@ export function HowItWorksSection() {
         <div className="relative mb-0 lg:mb-0 grid lg:grid-cols-2 gap-4 lg:gap-12 items-end">
           {/* Titre colonne gauche */}
           <div className="overflow-hidden pb-0 lg:pb-32">
-            <div className={`transition-all duration-1000 ${isVisible ? "translate-x-0 opacity-100" : "-translate-x-12 opacity-0"}`}>
+            {/* Reveal: slide horizontally only at lg+, where the 48px (`lg:px-12`)
+                gutter matches the -translate-x-12 offset. On smaller screens the
+                gutter is 24px (`px-6`), so a -48px slide would start clipped —
+                slide vertically there instead. */}
+            <div className={`transition-all duration-1000 ${isVisible ? "translate-x-0 translate-y-0 opacity-100" : "-translate-y-4 opacity-0 lg:-translate-y-0 lg:-translate-x-12"}`}>
               <span className="inline-flex items-center gap-3 text-sm font-mono text-white/40 mb-8">
                 <span className="w-12 h-px bg-white/20" />
                 The Problem Commons
               </span>
             </div>
             
-            <h2 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.85] transition-all duration-1000 delay-100 ${
+            <h2 className={`text-4xl sm:text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.85] transition-all duration-1000 delay-100 ${
               isVisible ? "translate-y-0 opacity-100" : "translate-y-16 opacity-0"
             }`}>
               <span className="block">Bring.</span>
@@ -99,15 +103,22 @@ export function HowItWorksSection() {
           </div>
 
           {/* Image cerisier — se colle en bas sur les blocs */}
-          <div className={`relative h-[320px] lg:h-[640px] overflow-hidden transition-all duration-1000 delay-200 ${
+          <div className={`relative h-[220px] sm:h-[320px] lg:h-[640px] overflow-hidden transition-all duration-1000 delay-200 ${
             isVisible ? "opacity-100" : "opacity-0"
           }`}>
-            <img
-              src="/images/tree.png"
-              alt="Abstract tree graphic representing growth and connections"
-              aria-hidden="true"
-              className="absolute bottom-0 left-0 w-full h-full object-contain object-bottom"
-            />
+            <picture className="contents">
+              <source srcSet="/images/tree.avif" type="image/avif" />
+              <img
+                src="/images/tree.webp"
+                alt=""
+                aria-hidden="true"
+                width={1400}
+                height={1499}
+                loading="lazy"
+                decoding="async"
+                className="absolute bottom-0 left-0 w-full h-full object-contain object-bottom"
+              />
+            </picture>
             {/* Fade sur le bord gauche */}
             <div className="absolute inset-0 bg-gradient-to-r from-[oklch(0.09_0.01_260)] via-transparent to-transparent pointer-events-none" />
           </div>
@@ -120,7 +131,7 @@ export function HowItWorksSection() {
               key={step.number}
               type="button"
               onClick={() => setActiveStep(index)}
-              className={`relative text-left p-8 lg:p-12 border transition-all duration-500 ${
+              className={`relative text-left p-6 sm:p-8 lg:p-12 border transition-all duration-500 ${
                 activeStep === index 
                   ? "bg-[#000000] border-white/60" 
                   : "bg-[#000000] border-white/25 hover:border-white/50"

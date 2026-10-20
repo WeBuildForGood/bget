@@ -5,7 +5,8 @@ import type { CSSProperties, ReactNode } from "react";
 
 /**
  * Gentle scroll parallax. Moves the wrapped content vertically as the element
- * travels through the viewport. No-op for reduced-motion users.
+ * travels through the viewport. No-op for reduced-motion users and on small /
+ * coarse-pointer viewports, where the extra compositing isn't worth it.
  */
 export function Parallax({
   children,
@@ -26,6 +27,12 @@ export function Parallax({
     if (!el) return;
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Skip the transform work on phone-class viewports (small or coarse
+    // pointer): it costs more in compositing than the subtle effect is worth.
+    if (window.matchMedia("(max-width: 767px), (pointer: coarse)").matches) return;
+
+    const mover = el.firstElementChild as HTMLElement | null;
+    if (!mover) return;
 
     let frame = 0;
     const update = () => {
@@ -35,16 +42,18 @@ export function Parallax({
       // Progress from -1 (below fold) to 1 (above fold)
       const progress = (rect.top + rect.height / 2 - viewport / 2) / viewport;
       const offset = progress * speed * 100;
-      el.style.setProperty("--parallax", `${offset.toFixed(2)}px`);
+      mover.style.setProperty("--parallax", `${offset.toFixed(2)}px`);
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update);
     };
+    mover.style.willChange = "transform";
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onScroll, { passive: true });
     return () => {
       if (frame) cancelAnimationFrame(frame);
+      mover.style.willChange = "";
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
@@ -52,7 +61,7 @@ export function Parallax({
 
   return (
     <div ref={ref} className={className} style={style}>
-      <div style={{ transform: "translate3d(0, var(--parallax, 0px), 0)", willChange: "transform" }}>
+      <div style={{ transform: "translate3d(0, var(--parallax, 0px), 0)" }}>
         {children}
       </div>
     </div>

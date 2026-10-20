@@ -1,38 +1,28 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { usePublicMetrics } from "./use-public-metrics";
 
-const metrics = [
-  { 
-    value: 12, 
-    suffix: "", 
-    prefix: "",
-    label: "Dimensions we hold each other to",
-    sublabel: "character is the gate, not a bonus",
-  },
-  { 
-    value: 5, 
-    suffix: "", 
-    prefix: "",
-    label: "Rituals that keep us alive",
-    sublabel: "every week, without fail",
-  },
-  { 
-    value: 72, 
-    suffix: "h", 
-    prefix: "<",
-    label: "To a human answer on every problem",
-    sublabel: "no submission left unanswered",
-  },
-];
+type Metric = {
+  // `null` means "not known yet" (still loading, or the request failed). We
+  // never substitute a placeholder count, so the UI shows a dash instead.
+  value: number | null;
+  suffix: string;
+  prefix: string;
+  label: string;
+  sublabel: string;
+};
 
-function AnimatedNumber({ end, suffix = "", prefix = "" }: { end: number; suffix?: string; prefix?: string }) {
+function AnimatedNumber({ end, suffix = "", prefix = "" }: { end: number | null; suffix?: string; prefix?: string }) {
   const [count, setCount] = useState(0);
   const [isScrambling, setIsScrambling] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
   const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
+    // No real value yet — do not animate towards a fabricated target.
+    if (end === null) return;
+    const target = end;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !hasAnimated) {
@@ -43,7 +33,7 @@ function AnimatedNumber({ end, suffix = "", prefix = "" }: { end: number; suffix
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
             const eased = 1 - Math.pow(1 - progress, 4);
-            setCount(Math.floor(eased * end));
+            setCount(Math.floor(eased * target));
             setIsScrambling(progress < 0.8);
             if (progress < 1) requestAnimationFrame(animate);
           };
@@ -56,10 +46,35 @@ function AnimatedNumber({ end, suffix = "", prefix = "" }: { end: number; suffix
     return () => observer.disconnect();
   }, [end, hasAnimated]);
 
+  // Honest empty state: while the value is unknown (loading or request failed)
+  // show a dash. Once the real number arrives this same node animates to it.
+  if (end === null) {
+    return (
+      <div
+        ref={ref}
+        className="inline-flex items-baseline whitespace-nowrap font-display text-muted-foreground"
+        aria-hidden="true"
+      >
+        —
+      </div>
+    );
+  }
+
   const displayValue = count.toLocaleString();
 
+  // Reserve the width of the *final* value up-front. Without this, the digits
+  // grow as the counter animates (0 -> 12 -> 72), reflowing the row and
+  // contributing to layout shift. `ch` matches one tabular digit, and the
+  // single-character prefix/suffix each occupy one unit too.
+  const reservedCh =
+    end.toLocaleString().length + (prefix ? 1 : 0) + (suffix ? 1 : 0);
+
   return (
-    <div ref={ref} className="inline-flex items-baseline">
+    <div
+      ref={ref}
+      className="inline-flex items-baseline whitespace-nowrap"
+      style={{ minWidth: `${reservedCh}ch` }}
+    >
       <span className="text-muted-foreground mr-1">{prefix}</span>
       <span className="tabular-nums">
         {displayValue.split("").map((char, i) => (
@@ -219,6 +234,7 @@ function DotGraph({
 export function MetricsSection() {
   const [time, setTime] = useState<Date | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const { metrics, status: metricsStatus } = usePublicMetrics();
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -238,25 +254,67 @@ export function MetricsSection() {
     return () => observer.disconnect();
   }, []);
 
+  const metricsLive = metricsStatus === "ready";
+
+  // Real counts only. Values stay `null` until the request resolves, which the
+  // UI renders as a dash rather than inventing a number.
+  const realMetrics: Metric[] = [
+    {
+      value: metrics?.problems_public_open ?? null,
+      suffix: "",
+      prefix: "",
+      label: "Problems to solve",
+      sublabel: "open in the commons",
+    },
+    {
+      value: metrics?.projects_approved ?? null,
+      suffix: "",
+      prefix: "",
+      label: "Projects",
+      sublabel: "approved and visible",
+    },
+    {
+      value: metrics?.problems_total ?? null,
+      suffix: "",
+      prefix: "",
+      label: "Problems received",
+      sublabel: "every one gets a human answer in <72h",
+    },
+  ];
+
   return (
-    <section ref={sectionRef} className="relative py-32 lg:py-40 overflow-hidden">
+    <section ref={sectionRef} className="relative py-20 lg:py-40 overflow-hidden">
       <GridBackground />
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header */}
-        <div className="grid lg:grid-cols-12 gap-8 mb-20 lg:mb-32">
+        <div className="grid lg:grid-cols-12 gap-8 mb-12 lg:mb-32">
           <div className="lg:col-span-8 lg:col-start-1">
             <div className="flex items-center gap-4 mb-6">
-              <span className="flex items-center gap-2 px-3 py-1 bg-[#eca8d6]/10 text-[#eca8d6] text-xs font-mono">
-                <span className="w-2 h-2 rounded-full bg-[#eca8d6] animate-pulse" />
-                LIVE
-              </span>
+              {metricsLive ? (
+                <span className="flex items-center gap-2 px-3 py-1 bg-[#eca8d6]/10 text-[#eca8d6] text-xs font-mono">
+                  <span className="w-2 h-2 rounded-full bg-[#eca8d6] animate-pulse" />
+                  LIVE
+                </span>
+              ) : metricsStatus === "loading" ? (
+                <span className="flex items-center gap-2 px-3 py-1 bg-foreground/5 text-muted-foreground text-xs font-mono">
+                  <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                  LOADING
+                </span>
+              ) : (
+                <span className="flex items-center gap-2 px-3 py-1 bg-foreground/5 text-muted-foreground text-xs font-mono">
+                  <span className="w-2 h-2 rounded-full bg-current" />
+                  OFFLINE
+                </span>
+              )}
               <span className="text-sm font-mono text-muted-foreground">
-                {time ? `${time.toLocaleTimeString("en-GB")} UTC` : ""}
+                {time
+                  ? `${time.toLocaleTimeString("en-GB", { timeZone: "UTC" })} UTC`
+                  : ""}
               </span>
             </div>
 
-            <h2 className={`text-6xl md:text-7xl lg:text-[140px] font-display tracking-tight leading-[0.95] transition-all duration-1000 ${
+            <h2 className={`text-4xl sm:text-6xl md:text-7xl lg:text-[140px] font-display tracking-tight leading-[0.95] transition-all duration-1000 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
               Numbers
@@ -271,9 +329,13 @@ export function MetricsSection() {
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
           <img
-            src="/images/real-time-graph.png"
+            src="/images/real-time-graph.webp"
             alt=""
             aria-hidden="true"
+            width={1920}
+            height={635}
+            loading="lazy"
+            decoding="async"
             className="w-full h-auto object-cover"
           />
         </div>
@@ -281,21 +343,21 @@ export function MetricsSection() {
         {/* Metrics grid */}
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Large metric */}
-          <div className={`lg:col-span-1 bg-foreground/[0.02] border border-foreground/10 p-10 lg:p-14 transition-all duration-700 ${
+          <div className={`lg:col-span-1 bg-foreground/[0.02] border border-foreground/10 p-6 sm:p-10 lg:p-14 transition-all duration-700 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
           }`}>
             <div className="text-4xl md:text-5xl lg:text-6xl font-display tracking-tight mb-4 whitespace-nowrap overflow-hidden">
-              <AnimatedNumber end={metrics[0].value} suffix={metrics[0].suffix} prefix={metrics[0].prefix} />
+              <AnimatedNumber end={realMetrics[0]?.value ?? null} suffix={realMetrics[0]?.suffix ?? ""} prefix={realMetrics[0]?.prefix ?? ""} />
             </div>
             <div className="mb-6">
               <DotGraph color="white" height={36} freq1={0.28} freq2={0.09} freqT={0.5} speed={0.018} baseline={0.35} amplitude={0.55} />
             </div>
-            <div className="text-lg text-foreground mb-2">{metrics[0].label}</div>
-            <div className="text-sm text-muted-foreground font-mono">{metrics[0].sublabel}</div>
+            <div className="text-lg text-foreground mb-2">{realMetrics[0]?.label ?? "Problems to solve"}</div>
+            <div className="text-sm text-muted-foreground font-mono">{realMetrics[0]?.sublabel ?? "open in the commons"}</div>
           </div>
 
           {/* Metrics */}
-          {metrics.slice(1).map((metric, index) => (
+          {realMetrics.slice(1).map((metric, index) => (
             <div
               key={metric.label}
               className={`bg-foreground/[0.02] border border-foreground/10 p-8 flex flex-col items-start justify-between gap-6 transition-all duration-700 ${
@@ -325,7 +387,7 @@ export function MetricsSection() {
         </div>
 
         {/* Bottom ticker */}
-        <div className={`mt-16 pt-8 border-t border-foreground/10 flex flex-wrap items-center gap-x-12 gap-y-4 text-sm font-mono text-muted-foreground transition-all duration-1000 delay-500 ${
+        <div className={`mt-12 lg:mt-16 pt-8 border-t border-foreground/10 flex flex-wrap items-center gap-x-6 sm:gap-x-12 gap-y-4 text-sm font-mono text-muted-foreground transition-all duration-1000 delay-500 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
           <span>Science</span>

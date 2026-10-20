@@ -9,7 +9,14 @@
 name = "buildforgood"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"
-account_id = "87fd5601199078add1a9f9f88d3608d6"
+account_id = "2eff373f1fc9834a686bfb5982b151b2"
+workers_dev = true
+
+# Custom domain — Cloudflare creates the DNS record + SSL automatically
+routes = [
+  { pattern = "buildforgood.world", custom_domain = true },
+  { pattern = "www.buildforgood.world", custom_domain = true }
+]
 
 [assets]
 directory = "./out"
@@ -21,5 +28,66 @@ run_worker_first = ["/api/*", "/projects/*"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "buildforgood-forms"
-database_id = "e06265a9-0b99-41d2-82fc-09c0d54d1328"
+database_name = "buildforgood-prod"
+database_id = "d95b7ba0-f4d4-4efa-9e91-dfe6c4d8b64c"
+
+# ---------------------------------------------------------------------------
+# Non-production environments (used by CI: `wrangler deploy --env staging` /
+# `--env preview`).
+#
+# `routes = []` is REQUIRED: `routes` IS inherited by environments in Wrangler
+# v4, so without it a preview/staging deploy would reassign the production
+# custom domains (buildforgood.world / www.buildforgood.world) away from the
+# production Worker.
+#
+# `d1_databases` is NOT inherited by environments, so each env declares its own
+# binding below. It currently points at the SAME production database — that
+# means a submission made against a preview/staging host writes to production
+# data. Replace `database_id` with a separate database if previews should be
+# isolated.
+[env.staging]
+name = "buildforgood-staging"
+workers_dev = true
+routes = []
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "buildforgood-prod"
+database_id = "d95b7ba0-f4d4-4efa-9e91-dfe6c4d8b64c"
+
+[env.preview]
+name = "buildforgood-preview"
+workers_dev = true
+routes = []
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "buildforgood-prod"
+database_id = "d95b7ba0-f4d4-4efa-9e91-dfe6c4d8b64c"
+
+# ---------------------------------------------------------------------------
+# Optional configuration — the Worker runs correctly with none of these set.
+# Prefer `wrangler secret put <NAME>` for anything sensitive; non-secret values
+# may instead be placed in an (uncommented) [vars] block below.
+#
+# Notifications (worker/lib/notify.js). On every successful submission the
+# Worker tries, in order: NOTIFY_WEBHOOK, then RESEND_API_KEY + NOTIFY_EMAIL,
+# then a console.log one-liner. A notification failure never fails the request.
+#
+#   NOTIFY_WEBHOOK   URL that receives a compact JSON POST per submission,
+#                    e.g. "https://hooks.example.com/buildforgood".
+#   RESEND_API_KEY   Resend API key (https://resend.com) for email alerts and
+#                    for best-effort submitter acknowledgements.
+#   NOTIFY_EMAIL     Inbox that receives the alert emails (required with Resend).
+#   NOTIFY_FROM      Resend "From" address on a verified domain.
+#                    Default: "Build For Good <notify@buildforgood.world>".
+#
+# Rate limiting (worker/lib/ratelimit.js). Only a salted SHA-256 of the client
+# IP is stored; set a stable secret salt so hashes cannot be brute-forced.
+#
+#   RATE_LIMIT_SALT  Secret salt mixed into the stored IP hash.
+#
+# [vars]
+# NOTIFY_EMAIL   = "team@buildforgood.world"
+# NOTIFY_FROM    = "Build For Good <notify@buildforgood.world>"
+# ---------------------------------------------------------------------------

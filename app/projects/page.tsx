@@ -3,11 +3,13 @@ import Link from "next/link";
 import { PageShell, Section } from "@/components/site/page-shell";
 import { ProjectsGallery } from "@/components/projects/projects-gallery";
 import { ProjectForm } from "@/components/projects/project-form";
-import { JsonLd, webPageLd } from "@/components/seo/json-ld";
+import { JsonLd, breadcrumbLd, collectionPageLd } from "@/components/seo/json-ld";
 import { pageMetadata } from "@/lib/site";
 
+// Trimmed to 155 chars (<=160): the previous copy ran to 165 and was truncated
+// in search snippets.
 const DESCRIPTION =
-  "Projects from the Build For Good community — member-submitted and human-reviewed. Real work at every stage, from idea to scaled, with the people and links behind it.";
+  "Projects from the Build For Good community — member-submitted and human-reviewed. Real work at every stage, from idea to scaled, with the people behind it.";
 
 export const metadata: Metadata = pageMetadata({
   title: "Projects",
@@ -33,12 +35,24 @@ const steps = [
 export default function ProjectsPage() {
   return (
     <>
+      {/*
+       * CollectionPage + ItemList: this route gathers many works. The gallery is
+       * fetched client-side from /api/projects after the static document loads,
+       * so there are no entries to enumerate at build time — the node declares
+       * the page's intent without fabricating items (empty ItemList is correct).
+       */}
       <JsonLd
-        data={webPageLd({
-          path: "/projects",
-          name: "Projects — Build For Good",
-          description: DESCRIPTION,
-        })}
+        data={[
+          collectionPageLd({
+            path: "/projects",
+            name: "Projects — Build For Good",
+            description: DESCRIPTION,
+          }),
+          breadcrumbLd([
+            { name: "Home", path: "/" },
+            { name: "Projects", path: "/projects" },
+          ]),
+        ]}
       />
       <PageShell
         eyebrow="The showcase"
@@ -68,15 +82,18 @@ export default function ProjectsPage() {
                 what did not.
               </p>
             </div>
-            <div className="card-glow flex flex-col justify-between rounded-3xl border border-foreground/10 p-8 lg:p-10">
+            <div className="card-glow flex flex-col justify-between rounded-3xl border border-foreground/10 p-6 sm:p-8 lg:p-10">
               <div>
                 <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
                   Submit your work
                 </h3>
                 <p className="mt-4 leading-relaxed text-muted-foreground">
                   If you have built something real — a tool, a prototype, a pilot, a small service,
-                  a piece of research — it belongs on this wall. Submission is open to members; it
-                  takes a few minutes, and a person reads every one.
+                  a piece of research — it belongs on this wall. Submission is open to{" "}
+                  <Link href="/membership" className="link-underline text-foreground">
+                    members
+                  </Link>
+                  ; it takes a few minutes, and a person reads every one.
                 </p>
               </div>
               <Link
@@ -97,7 +114,7 @@ export default function ProjectsPage() {
         >
           <div className="grid gap-px border border-foreground/10 bg-foreground/10 sm:grid-cols-3">
             {steps.map(([title, body], i) => (
-              <div key={title} className="card-glow bg-background p-8">
+              <div key={title} className="card-glow bg-background p-6 sm:p-8">
                 <span className="font-mono text-sm text-muted-foreground">
                   {String(i + 1).padStart(2, "0")}
                 </span>

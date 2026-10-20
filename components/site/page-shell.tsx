@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-3 font-mono text-[11px] tracking-[0.2em] uppercase text-muted-foreground">
+    <span className="inline-flex items-center gap-3 font-mono text-xs tracking-[0.2em] uppercase text-muted-foreground">
       <span className="w-12 h-px bg-foreground/20" />
       {children}
     </span>
@@ -54,7 +54,7 @@ export function PageShell({ eyebrow, title, lead, image, meta, children }: PageS
               ) : null}
               {meta?.length ? (
                 <Reveal delay={280} y={16}>
-                  <ul className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-3 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  <ul className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-3 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     {meta.map((item) => (
                       <li
                         key={item}
@@ -121,7 +121,7 @@ export function Section({
     <section
       id={id}
       className={cn(
-        "relative border-b border-foreground/10",
+        "relative scroll-mt-24 border-b border-foreground/10",
         muted && "bg-foreground/[0.02]",
         className,
       )}
@@ -135,7 +135,7 @@ export function Section({
                   <Reveal y={12} duration={600}>
                     <span className="inline-flex items-center gap-4">
                       {index ? (
-                        <span className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground/60">
+                        <span className="font-mono text-xs tracking-[0.2em] text-muted-foreground/60">
                           {index}
                         </span>
                       ) : null}

@@ -1,0 +1,78 @@
+# Cloudflare Workers Static Assets header rules.
+#
+# This file lives in `public/` so `next build` (output: 'export') copies it to
+# the root of the static asset directory (`out/_headers`), where Cloudflare
+# reads it. It applies to every static response.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# `wrangler.toml` sets `run_worker_first = ["/api/*", "/projects/*"]`, so the
+# Worker in `worker/index.js` (which also sets security headers) does NOT run
+# for normal pages. Without this file the static HTML/CSS/JS responses carry
+# no security headers at all. Cloudflare applies `_headers` to static-asset
+# responses, which closes that gap for everything except the `/api/*` and
+# `/projects/*` paths the Worker handles itself (the Worker sets its own
+# headers there).
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Robots-Tag: all
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
+# WHY 'unsafe-inline' IS REQUIRED (do not remove it without also changing the
+# build — removing it here alone WILL break the live site):
+#
+#   * script-src 'unsafe-inline'
+#       `next build` with `output: 'export'` emits the React/Next.js hydration
+#       bootstrap as INLINE `<script>` tags in every page (multiple per page).
+#       A `script-src` without 'unsafe-inline' blocks them, so the page renders
+#       but never hydrates (no interactivity). Replacing inline scripts with
+#       hashes (sha256-...) or a per-request nonce is not possible with a fully
+#       static export: hashes would have to be regenerated into this file after
+#       every build, and nonces require a server. So 'unsafe-inline' stays.
+#
+#   * style-src 'unsafe-inline'
+#       The UI relies on many inline `style="..."` attributes that carry
+#       runtime state (e.g. the hero's per-letter colours, transition-delay,
+#       transform previews). `style-src` without 'unsafe-inline' blocks both
+#       inline `style` attributes and React's dynamic style updates, which
+#       breaks layout/colour and hydration styling.
+#
+#   What would let us remove them: move the site off `output: 'export'` to a
+#   server runtime and adopt nonce-based CSP (next.config `headers()` or a
+#   middleware/Worker that injects a per-request nonce), and replace inline
+#   `style` attributes with CSS classes/CSS custom properties. Until then,
+#   'unsafe-inline' is the only CSP that does not break the page.
+
+# ---------------------------------------------------------------------------
+# Caching
+# ---------------------------------------------------------------------------
+
+# Next.js hashed build output is content-addressed and safe to cache forever.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Hashed font/image assets emitted by next/font.
+/_next/static/media/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Site imagery.
+/images/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# Root-level raster/vector assets (icons, OG image, placeholders).
+/*.png
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/*.jpg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/*.svg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/*.webp
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400

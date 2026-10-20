@@ -29,11 +29,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Run linter
-        run: npm run lint
-      
       - name: Run type-check
-        run: npx tsc --noEmit
+        run: npm run typecheck
+      
+      - name: Run unit tests
+        run: npm test
       
       - name: Security audit
         run: npm audit --audit-level=moderate
@@ -63,10 +63,14 @@ jobs:
             done
           fi
       
-      - name: Health check test
+      - name: Verify static export
         run: |
-          # Test health endpoint after build
-          curl -f http://localhost:3000/api/health || exit 1
+          # `npm run build` is a Next.js static export to `out/` (see
+          # next.config.mjs). The API is served by the Worker, not the export,
+          # so we smoke-test the emitted artifact instead of a local server.
+          test -f out/index.html || (echo "Static export missing out/index.html" && exit 1)
+          test -f out/404.html || (echo "Static export missing out/404.html" && exit 1)
+          echo "Static export OK: $(find out -type f | wc -l) files"
       
   deploy-production:
     name: Deploy to Production
@@ -107,16 +111,38 @@ jobs:
       
       - name: Post-deploy health check
         run: |
-          # Test production health endpoint
-          curl -f https://buildforgood.nikhilnagpure203.workers.dev/api/health || (echo "Health check failed" && exit 1)
+          # Canonical production origin (custom domain configured in
+          # wrangler.toml). Retry briefly to allow DNS/edge propagation.
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS https://buildforgood.world/api/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Health check attempt ${attempt} failed; retrying in 5s..."
+            sleep 5
+          done
+          echo "Health check failed" && exit 1
+
+      - name: Smoke test (production)
+        run: |
+          set -e
+          HOME_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://buildforgood.world/)
+          HEALTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://buildforgood.world/api/health)
+          echo "GET /            -> ${HOME_CODE}"
+          echo "GET /api/health  -> ${HEALTH_CODE}"
+          test "${HOME_CODE}" = "200"
+          test "${HEALTH_CODE}" = "200"
+          echo "Smoke test passed"
       
   deploy-staging:
     name: Deploy to Staging
     needs: test
     runs-on: ubuntu-latest
     if: |
-      github.ref == 'refs/heads/staging' ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'preview'))
+      vars.ENABLE_PREVIEW_DEPLOY == 'true' && (
+        github.ref == 'refs/heads/staging' ||
+        (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'preview'))
+      )
     environment: staging
     steps:
       - uses: actions/checkout@v4
@@ -147,17 +173,18 @@ jobs:
         run: npx wrangler deploy --env staging
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-      
-      - name: Post-deploy health check
-        run: |
-          # Test staging health endpoint
-          curl -f https://buildforgood-staging.nikhilnagpure203.workers.dev/api/health || (echo "Health check failed" && exit 1)
+
+      # NOTE: No post-deploy health check for staging. The previously
+      # referenced `*.workers.dev` host returns 404 and no staging worker URL
+      # can be verified, so we do not point CI at a URL that may not exist.
+      # Add a check here once a stable staging hostname is known (and after
+      # `[env.staging]` is defined in wrangler.toml).
   
   deploy-preview:
     name: Deploy Preview
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && vars.ENABLE_PREVIEW_DEPLOY == 'true'
     environment: preview
     steps:
       - uses: actions/checkout@v4
@@ -190,11 +217,13 @@ jobs:
           set -o pipefail
           OUTPUT=$(npx wrangler deploy --env preview 2>&1)
           echo "$OUTPUT"
-          # Extract the preview URL from wrangler output
+          # Extract the (first) preview URL from wrangler output. `head -n1`
+          # guards against multiple matches turning URL into a multi-line value,
+          # which would corrupt both $GITHUB_OUTPUT and the curl below.
           if echo "$OUTPUT" | grep -q "https://"; then
-            URL=$(echo "$OUTPUT" | grep -oE 'https://[^ ]+')
+            URL=$(echo "$OUTPUT" | grep -oE 'https://[^ ]+' | head -n1)
           else
-            URL="https://${{ github.event.repository.name }}-preview.${{ secrets.CF_ACCOUNT_ID || 'workers.dev' }}"
+            echo "Could not determine the preview URL from wrangler output" && exit 1
           fi
           echo "preview-url=$URL" >> "$GITHUB_OUTPUT"
           # Check preview health

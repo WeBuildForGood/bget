@@ -13,7 +13,7 @@ const testimonials = [
     author: "Build For Good",
     role: "Values",
     company: "Character",
-    metric: { value: "1st", label: "Character is the gate" },
+    metric: { value: "Character", label: "is the gate" },
   },
   {
     quote: "We would rather stay small and excellent than grow fast and become ordinary.",
@@ -87,15 +87,15 @@ export function TestimonialsSection() {
   const activeTestimonial = testimonials[activeIndex];
 
   return (
-    <section ref={sectionRef} className="relative py-32 lg:py-40 bg-foreground text-background overflow-hidden">
+    <section ref={sectionRef} className="relative py-20 lg:py-40 bg-foreground text-background overflow-hidden">
       {/* ASCII background pattern */}
-      <div className="absolute inset-0 font-mono text-[10px] text-background/[0.02] leading-tight overflow-hidden whitespace-pre select-none">
+      <div className="absolute inset-0 font-mono text-xs text-background/[0.02] leading-tight overflow-hidden whitespace-pre select-none" aria-hidden="true">
         {isMounted ? asciiPattern : null}
       </div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
+      <div className="relative z-10 max-w-[1400px] mx-auto pl-[calc(1.5rem+env(safe-area-inset-left))] pr-[calc(1.5rem+env(safe-area-inset-right))] lg:pl-12 lg:pr-12">
         {/* Header */}
-        <div className="flex items-center justify-between mb-20">
+        <div className="flex items-center justify-between mb-12 lg:mb-20">
           <div>
             <span className="inline-flex items-center gap-3 text-sm font-mono text-background/40 mb-4">
               <span className="w-12 h-px bg-background/20" />
@@ -165,9 +165,9 @@ export function TestimonialsSection() {
             {/* Active metric - Large */}
             <div 
               key={`metric-${activeIndex}`}
-              className="p-10 border border-background/20 bg-background/5 animate-fadeSlideIn"
+              className="p-6 sm:p-10 border border-background/20 bg-background/5 animate-fadeSlideIn"
             >
-              <span className="text-7xl lg:text-8xl font-display block mb-4">
+              <span className="text-5xl sm:text-7xl lg:text-8xl font-display block mb-4">
                 {activeTestimonial.metric.value}
               </span>
               <span className="text-lg text-background/60">
@@ -181,14 +181,18 @@ export function TestimonialsSection() {
                 <button
                   key={idx}
                   onClick={() => goTo(idx)}
-                  className="flex-1 h-1 bg-background/20 overflow-hidden"
+                  aria-label={`Show principle ${idx + 1} of ${testimonials.length}`}
+                  aria-current={idx === activeIndex}
+                  className="flex-1 min-h-11 flex items-center bg-transparent group"
                 >
-                  <div 
-                    className={`h-full bg-background transition-all duration-300 ${
-                      idx === activeIndex ? "w-full" : idx < activeIndex ? "w-full opacity-50" : "w-0"
-                    }`}
-                    style={idx === activeIndex ? { animation: "progress 8s linear forwards" } : {}}
-                  />
+                  <span className="block w-full h-1 bg-background/20 overflow-hidden">
+                    <span
+                      className={`block h-full bg-background transition-all duration-300 ${
+                        idx === activeIndex ? "w-full" : idx < activeIndex ? "w-full opacity-50" : "w-0"
+                      }`}
+                      style={idx === activeIndex ? { animation: "progress 8s linear forwards" } : {}}
+                    />
+                  </span>
                 </button>
               ))}
             </div>
@@ -203,7 +207,8 @@ export function TestimonialsSection() {
                   <button
                     key={t.company}
                     onClick={() => goTo(idx)}
-                    className={`px-4 py-2 text-sm border transition-all ${
+                    aria-pressed={idx === activeIndex}
+                    className={`inline-flex items-center min-h-11 px-4 py-2 text-sm border transition-all ${
                       idx === activeIndex 
                         ? "border-background/40 text-background" 
                         : "border-background/10 text-background/40 hover:border-background/30"

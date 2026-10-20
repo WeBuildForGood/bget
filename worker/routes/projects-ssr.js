@@ -16,7 +16,7 @@ import { safeHttpUrl, splitList, truncate } from "../lib/format.js";
 import { methodNotAllowed } from "../lib/json.js";
 import { notFoundPage } from "../lib/assets.js";
 
-const SITE_URL = "https://buildforgood.nikhilnagpure203.workers.dev";
+const SITE_URL = "https://buildforgood.world";
 const SITE_NAME = "Build For Good";
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og.png`;
 
@@ -73,7 +73,14 @@ export async function handleProjects(request, env, ctx, url) {
     return env.ASSETS.fetch(request);
   }
 
-  const slug = decodeURIComponent(pathname.slice(prefix.length));
+  // A malformed percent-escape (e.g. `/projects/%`) makes `decodeURIComponent`
+  // throw `URIError`; treat it as "no such project" rather than a 500.
+  let slug;
+  try {
+    slug = decodeURIComponent(pathname.slice(prefix.length));
+  } catch {
+    return notFoundPage(env, url);
+  }
   if (!slug || slug.includes("/")) {
     return notFoundPage(env, url);
   }
@@ -203,15 +210,27 @@ export function renderProject(project) {
 <meta property="og:description" content="${escapeHtml(metaDescription)}" />
 <meta property="og:url" content="${escapeHtml(canonical)}" />
 <meta property="og:image" content="${escapeHtml(coverImage)}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${escapeHtml(title)}" />
 <meta name="twitter:description" content="${escapeHtml(metaDescription)}" />
 <meta name="twitter:image" content="${escapeHtml(coverImage)}" />
+<meta name="twitter:image:alt" content="${escapeHtml(title)}" />
+
+<meta name="linkedin:owner" content="Nikhil Nagpure" />
+<meta name="linkedin:owner:type" content="person" />
+<meta name="pin:media" content="${escapeHtml(coverImage)}" />
+<meta name="pin:url" content="${escapeHtml(canonical)}" />
+<meta name="pin:description" content="${escapeHtml(metaDescription)}" />
+
+${project.lead_name ? `<meta property="article:author" content="${escapeHtml(project.lead_name)}" />` : ""}
+${project.created_at ? `<meta property="article:published_time" content="${escapeHtml(project.created_at)}" />` : ""}
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet" />
 
 <script type="application/ld+json">${jsonScript(ld)}</script>
 
@@ -251,7 +270,7 @@ export function renderProject(project) {
     border-bottom: 1px solid var(--border);
   }
   .brand {
-    font-family: "Instrument Serif", Georgia, serif;
+    font-family: "Inter", system-ui, sans-serif;
     font-size: 1.2rem;
     color: var(--fg);
     letter-spacing: 0.01em;
@@ -268,7 +287,7 @@ export function renderProject(project) {
     color: var(--accent);
   }
   h1 {
-    font-family: "Instrument Serif", Georgia, serif;
+    font-family: "Inter", system-ui, sans-serif;
     font-weight: 400;
     font-size: clamp(2.4rem, 6vw, 3.6rem);
     line-height: 1.06;

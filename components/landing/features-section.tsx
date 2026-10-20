@@ -2,30 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { usePublicMetrics, formatMetric } from "./use-public-metrics";
+
 const features = [
   {
     number: "01",
     title: "Multidisciplinary by design",
     description: "A mathematician, a doctor, a civil engineer, and a security researcher see a problem in ways no single discipline can. We put them in the same room — and build.",
-    stats: { value: "∞", label: "fields, one room" },
   },
   {
     number: "02",
     title: "Character before capability",
     description: "Brilliance is not enough. We select for people who keep promises, stay humble, and can be trusted with what they can do.",
-    stats: { value: "1st", label: "the person, not the résumé" },
   },
   {
     number: "03",
     title: "Real things, not talk",
     description: "From software and research to clean water, energy, and education. We measure success by what actually changes.",
-    stats: { value: "Every", label: "sector that needs solving" },
   },
   {
     number: "04",
     title: "Together, or not at all",
     description: "Someone else's win is information, not a threat. We grow by helping each other become better.",
-    stats: { value: "1", label: "community, worldwide" },
   },
 ];
 
@@ -129,6 +127,7 @@ function ParticleVisualization() {
 }
 
 export function FeaturesSection() {
+  const { metrics } = usePublicMetrics();
   const [isVisible, setIsVisible] = useState(false);
   const [activeFeature, setActiveFeature] = useState(0);
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -149,11 +148,11 @@ export function FeaturesSection() {
     <section
       id="features"
       ref={sectionRef}
-      className="relative py-24 lg:py-32 overflow-hidden"
+      className="relative py-16 lg:py-32 overflow-hidden"
     >
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header - Full width with diagonal layout */}
-        <div className="relative mb-24 lg:mb-32">
+        <div className="relative mb-12 lg:mb-32">
           <div className="grid lg:grid-cols-12 gap-8 items-end">
             <div className="lg:col-span-7">
               <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
@@ -161,20 +160,20 @@ export function FeaturesSection() {
                 What we do
               </span>
               <h2
-                className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
+                className={`text-4xl sm:text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
                   isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
                 }`}
               >
-                Build. Grow.
+                Build innovative solutions together across every discipline —
                 <br />
-                <span className="text-muted-foreground">Evolve. Together.</span>
+                <span className="text-muted-foreground">from global problems to real impact.</span>
               </h2>
             </div>
             <div className="lg:col-span-5 lg:pb-4">
               <p className={`text-xl text-muted-foreground leading-relaxed transition-all duration-1000 delay-200 ${
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
               }`}>
-                Exceptional people across every field — science, medicine, engineering, art, law, agriculture — turning meaningful problems into real, working solutions.
+                Scientists, doctors, engineers, artists, lawyers, farmers, and builders — turning real-world challenges in health, energy, education, and technology into meaningful collective solutions.
               </p>
             </div>
           </div>
@@ -184,13 +183,13 @@ export function FeaturesSection() {
         <div className="grid lg:grid-cols-12 gap-4 lg:gap-6">
           {/* Large feature card */}
           <div 
-            className={`lg:col-span-12 relative bg-black border border-foreground/10 min-h-[500px] overflow-hidden group transition-all duration-700 flex ${
+            className={`lg:col-span-12 relative bg-black border border-foreground/10 min-h-[340px] sm:min-h-[500px] overflow-hidden group transition-all duration-700 flex ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
             }`}
             onMouseEnter={() => setActiveFeature(0)}
           >
             {/* Left: text content */}
-            <div className="relative flex-1 p-8 lg:p-12 bg-black">
+            <div className="relative flex-1 p-6 sm:p-8 lg:p-12 bg-black">
               <ParticleVisualization />
               <div className="relative z-10">
                 <span className="font-mono text-sm text-muted-foreground">{features[0].number}</span>
@@ -201,21 +200,28 @@ export function FeaturesSection() {
                   {features[0].description}
                 </p>
                 <div>
-                  <span className="text-5xl lg:text-6xl font-display">{features[0].stats.value}</span>
-                  <span className="block text-sm text-muted-foreground font-mono mt-2">{features[0].stats.label}</span>
+                  <span className="text-5xl lg:text-6xl font-display">{formatMetric(metrics?.projects_approved)}</span>
+                  <span className="block text-sm text-muted-foreground font-mono mt-2">projects approved, across disciplines</span>
                 </div>
               </div>
             </div>
 
             {/* Right: mirrored image, full height */}
             <div className="hidden lg:block relative w-[42%] shrink-0 overflow-hidden">
-              <img
-                src="/images/feature-large.png"
-                alt="Feature illustration - multidisciplinary team collaboration"
-                aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-cover object-center"
-                style={{ transform: "scaleX(-1)" }}
-              />
+              <picture className="contents">
+                <source srcSet="/images/feature-large.avif" type="image/avif" />
+                <img
+                  src="/images/feature-large.webp"
+                  alt="Multidisciplinary team collaborating on a real-world problem solution"
+                  aria-hidden="false"
+                  width={1600}
+                  height={904}
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 w-full h-full object-cover object-center"
+                  style={{ transform: "scaleX(-1)" }}
+                />
+              </picture>
               {/* Fade left edge into black */}
               <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-transparent" />
             </div>

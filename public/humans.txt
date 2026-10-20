@@ -1,0 +1,19 @@
+/* TEAM */
+
+  Founder & Steward: Nikhil Nagpure
+  Contact: hello@buildforgood.world
+  GitHub: https://github.com/webuildforgood
+
+/* THANKS */
+
+  The members, stewards, guides and contributors who build Build For Good.
+
+/* SITE */
+
+  Name: Build For Good
+  Tagline: Build. Grow. Evolve. Together.
+  Location: A global, multidisciplinary community
+  Language: English
+  Standards: HTML5, CSS3, ES2020
+  Software: Next.js, React, TypeScript, Tailwind CSS
+  Last update: 2026-10-15

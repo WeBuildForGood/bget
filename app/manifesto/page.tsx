@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageShell, Section } from "@/components/site/page-shell";
 import { Reveal } from "@/components/motion/reveal";
 import { Marquee } from "@/components/motion/marquee";
-import { JsonLd, articleLd } from "@/components/seo/json-ld";
+import { JsonLd, articleLd, breadcrumbLd } from "@/components/seo/json-ld";
 import { pageMetadata } from "@/lib/site";
 
 export const metadata: Metadata = pageMetadata({
@@ -28,35 +28,35 @@ const beliefs = [
   "Say \"I don't know — let's figure it out.\" Intellectual humility and high ambition belong together.",
   "Character is a prerequisite, not a bonus. Brilliance used to manipulate, humiliate, or exploit has no place here.",
   "Struggle out loud — pretending not to struggle earns no respect here.",
-  "The first ten set the tone for the next thousand. We stay small and excellent rather than grow fast and become ordinary.",
+  "Whoever joins first sets the tone for everyone who follows. We stay small and excellent rather than grow fast and become ordinary.",
 ];
 
 const nots = [
-  "Not a networking farm.",
-  "Not a self-promotion channel.",
-  "Not a place where status is measured in certifications.",
+  "Not a networking farm — we build, we don't just collect contacts.",
+  "Not a self-promotion channel — status here is earned, not posted.",
+  "Not a place where status is measured in certifications or credentials.",
   "Not owned by any founder's startup — Build For Good belongs to its members.",
   "Not for people who are only here to extract.",
 ];
 
 const dimensions = [
-  ["Character", "Honest, trustworthy, keeps promises"],
-  ["Kindness", "Does not treat people as tools"],
-  ["Curiosity", "Wants to understand, not merely to appear knowledgeable"],
-  ["Ambition", "Has meaningful goals and actually works on them"],
-  ["Competence", "Can show something they have built or done"],
-  ["Humility", "Comfortable saying \u201cI don't know\u201d"],
-  ["Critical thinking", "Questions assumptions — including their own"],
-  ["Collaboration", "Makes other people better"],
-  ["Responsibility", "Thinks about consequences before acting"],
-  ["Discipline", "Follows through"],
-  ["Growth mindset", "Takes criticism without becoming defensive"],
+  ["Character", "Honest, keeps promises, trustworthy when it costs"],
+  ["Kindness", "Treats people as people, never as tools"],
+  ["Curiosity", "Asks better questions than they answer"],
+  ["Ambition", "Has meaningful goals and does the work"],
+  ["Competence", "Shows what they've built or done"],
+  ["Humility", "Says \"I don't know\" and means it"],
+  ["Critical thinking", "Questions assumptions — especially their own"],
+  ["Collaboration", "Makes others better through their involvement"],
+  ["Responsibility", "Weighs consequences before acting"],
+  ["Discipline", "Follows through, consistently"],
+  ["Growth mindset", "Uses criticism as fuel, not armor"],
   ["Positive intent", "Wants their capability to create, not destroy"],
 ];
 
 function NumberBadge({ n }: { n: number }) {
   return (
-    <span className="index-badge inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-foreground/15 px-2 font-mono text-[11px] tracking-[0.1em] text-muted-foreground transition-colors duration-500 group-hover:border-[#eca8d6]/50 group-hover:text-[#eca8d6]">
+    <span className="index-badge inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-foreground/15 px-2 font-mono text-xs tracking-[0.1em] text-muted-foreground transition-colors duration-500 group-hover:border-[#eca8d6]/50 group-hover:text-[#eca8d6]">
       {String(n).padStart(2, "0")}
     </span>
   );
@@ -66,17 +66,23 @@ export default function ManifestoPage() {
   return (
     <>
       <JsonLd
-        data={articleLd({
-          path: "/manifesto",
-          headline: "Capability without character is not enough.",
-          description:
-            "Why Build For Good exists, what we build, and the standard we hold each other to.",
-        })}
+        data={[
+          articleLd({
+            path: "/manifesto",
+            headline: "Capability without character is not enough.",
+            description:
+              "Why Build For Good exists, what we build, and the standard we hold each other to.",
+          }),
+          breadcrumbLd([
+            { name: "Home", path: "/" },
+            { name: "Manifesto", path: "/manifesto" },
+          ]),
+        ]}
       />
       <PageShell
         eyebrow="Manifesto"
         title={<>Capability without character<br />is not enough.</>}
-        lead="We build with our hands and our minds — and we refuse to separate the two. Skill without humility, ambition without kindness, and capability without character: none of these make anything worth keeping. Build For Good is where exceptional people across every discipline show up for both."
+        lead="We build with our hands and our minds — and we refuse to separate the two. Skill without humility, ambition without kindness, and capability without character: none of these make anything worth keeping. Build For Good exists so that exceptional people across every discipline can show up for both."
         image={{ src: "/images/orbit.svg", alt: "" }}
         meta={["Character first", "Multidisciplinary", "Global by design"]}
       >
@@ -98,7 +104,7 @@ export default function ManifestoPage() {
             {whatWeDo.map((item, i) => (
               <div
                 key={item.k}
-                className="card-glow interactive group bg-background p-8 lg:p-10"
+                className="card-glow interactive group bg-background p-6 sm:p-8 lg:p-10"
               >
                 <NumberBadge n={i + 1} />
                 <h3 className="mt-6 text-3xl font-display">{item.k}</h3>
@@ -108,7 +114,7 @@ export default function ManifestoPage() {
           </div>
           <Reveal y={16}>
             <p className="mt-10 text-lg text-muted-foreground max-w-3xl">
-              These are not slogans — they show up as a weekly rhythm of{" "}
+              These are not slogans — we hold to them in a weekly rhythm of{" "}
               <Link href="/activities" className="link-underline text-foreground">
                 Build Nights, Deep Dives, and Challenges
               </Link>
@@ -122,7 +128,7 @@ export default function ManifestoPage() {
             {beliefs.map((b, i) => (
               <li
                 key={b}
-                className="card-glow group flex gap-6 bg-background px-8 py-7 transition-colors duration-500 hover:bg-foreground/[0.03] lg:px-10"
+                className="card-glow group flex gap-4 bg-background px-5 py-6 transition-colors duration-500 hover:bg-foreground/[0.03] sm:gap-6 sm:px-8 sm:py-7 lg:px-10"
               >
                 <span className="hidden font-mono text-sm text-muted-foreground/60 pt-1 sm:block">
                   {String(i + 1).padStart(2, "0")}
@@ -141,9 +147,9 @@ export default function ManifestoPage() {
             {nots.map((n) => (
               <li
                 key={n}
-                className="card-glow interactive group relative border border-foreground/10 p-6 text-muted-foreground leading-relaxed"
+                className="card-glow interactive group relative border border-foreground/10 p-5 sm:p-6 text-muted-foreground leading-relaxed"
               >
-                <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#eca8d6]/70">
+                <span className="font-mono text-xs uppercase tracking-[0.18em] text-[#eca8d6]/70">
                   Not
                 </span>
                 <p className="mt-3 text-foreground/90">{n.replace(/^Not /, "")}</p>
@@ -152,7 +158,7 @@ export default function ManifestoPage() {
           </ul>
           <Reveal y={16}>
             <p className="mt-10 text-lg text-muted-foreground max-w-3xl">
-              Everything we do reward is written down as an explicit behaviour in our{" "}
+              Everything we reward is written down as an explicit behaviour in our{" "}
               <Link href="/values" className="link-underline text-foreground">
                 values
               </Link>
@@ -167,18 +173,18 @@ export default function ManifestoPage() {
           muted
         >
           <div className="grid gap-px border border-foreground/10 bg-foreground/10 lg:grid-cols-2">
-            <div className="bg-background p-8 lg:p-12">
+            <div className="bg-background p-6 sm:p-8 lg:p-12">
               <h3 className="flex items-center gap-3 font-mono text-sm uppercase tracking-widest text-[#eca8d6]">
                 <span className="h-px w-8 bg-[#eca8d6]/50" />
                 We promise you
               </h3>
               <ol className="mt-8 space-y-5 text-lg">
                 {[
-                  "You will be surrounded by people who make you better.",
-                  "You will be judged by your conduct, not your credentials.",
-                  "You will be helped when you ask.",
-                  "You will be told the truth, kindly.",
-                  "Your work and your words are safe here.",
+                  "Surrounded by people who make you better.",
+                  "Judged by your conduct, not your credentials.",
+                  "Helped when you ask.",
+                  "Told the truth, kindly.",
+                  "Your work and words are safe here.",
                 ].map((p, i) => (
                   <li key={p} className="group flex gap-4">
                     <span className="font-mono text-sm text-muted-foreground pt-1 transition-colors group-hover:text-[#eca8d6]">
@@ -189,7 +195,7 @@ export default function ManifestoPage() {
                 ))}
               </ol>
             </div>
-            <div className="bg-background p-8 lg:p-12">
+            <div className="bg-background p-6 sm:p-8 lg:p-12">
               <h3 className="flex items-center gap-3 font-mono text-sm uppercase tracking-widest text-muted-foreground">
                 <span className="h-px w-8 bg-foreground/20" />
                 We ask of you
@@ -221,11 +227,11 @@ export default function ManifestoPage() {
             {dimensions.map(([name, desc], i) => (
               <div
                 key={name}
-                className="card-glow interactive group bg-background p-6"
+                className="card-glow interactive group bg-background p-5 sm:p-6"
               >
                 <div className="flex items-baseline justify-between gap-4">
                   <h3 className="font-medium">{name}</h3>
-                  <span className="font-mono text-[11px] text-muted-foreground/50 transition-colors group-hover:text-[#eca8d6]">
+                  <span className="font-mono text-xs text-muted-foreground/50 transition-colors group-hover:text-[#eca8d6]">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                 </div>

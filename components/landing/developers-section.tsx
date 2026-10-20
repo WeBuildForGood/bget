@@ -38,7 +38,7 @@ export function DevelopersSection() {
   }, []);
 
   return (
-    <section id="developers" ref={sectionRef} className="relative py-24 lg:py-32 overflow-hidden">
+    <section id="developers" ref={sectionRef} className="relative py-16 lg:py-32 overflow-hidden">
 
       {/* Image — absolute, bottom-right, behind all content */}
       <div
@@ -47,9 +47,13 @@ export function DevelopersSection() {
         }`}
       >
         <img
-          src="/images/developers-bg.png"
-          alt="Diverse group of builders, thinkers, and makers in action"
+          src="/images/developers-bg.webp"
+          alt=""
           aria-hidden="true"
+          width={1600}
+          height={904}
+          loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover object-left-top"
         />
         {/* Fade left edge */}
@@ -62,7 +66,7 @@ export function DevelopersSection() {
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header — Full width */}
         <div
-          className={`mb-16 transition-all duration-700 ${
+          className={`mb-10 lg:mb-16 transition-all duration-700 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           }`}
         >
@@ -70,23 +74,23 @@ export function DevelopersSection() {
             <span className="w-8 h-px bg-foreground/30" />
             Who belongs here
           </span>
-          <h2 className="text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9]">
+          <h2 className="text-4xl sm:text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9]">
             These are
             <br />
             <span className="text-muted-foreground">my people.</span>
           </h2>
         </div>
 
-        {/* Description + Features — left half only */}
+        {/* Description + Features — left half only on desktop, full width on mobile */}
         <div
-          className={`max-w-[50%] transition-all duration-700 delay-100 ${
+          className={`max-w-full lg:max-w-[50%] transition-all duration-700 delay-100 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           }`}
         >
-          <p className="text-xl text-muted-foreground mb-12 leading-relaxed max-w-md">
+          <p className="text-xl text-muted-foreground mb-8 lg:mb-12 leading-relaxed max-w-md">
             Builders, doctors, researchers, artists, engineers, founders, strategists, teachers. If you are genuine, curious, and kind — and you want to become more capable without becoming less human — you belong here.
           </p>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {features.map((feature, index) => (
               <div
                 key={feature.title}

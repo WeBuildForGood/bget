@@ -1,11 +1,25 @@
 "use client";
 
-import { useState } from "react";
 import { Reveal } from "@/components/motion/reveal";
-import { Field, TextInput, TextArea, SubmitButton, FormStatus } from "@/components/site/form-ui";
-
-type Status = { type: "idle" | "ok" | "error"; message?: string };
-type Errors = Partial<Record<"name" | "email" | "message", string>>;
+import {
+  Field,
+  FormStatus,
+  Honeypot,
+  ReassuranceNote,
+  SubmitButton,
+  TextArea,
+  TextInput,
+} from "@/components/site/form-ui";
+import { useFormSubmit } from "@/components/site/use-form-submit";
+import {
+  isEmail,
+  MAX_EMAIL,
+  MAX_MESSAGE,
+  MAX_NAME,
+  MAX_SUBJECT,
+  MIN_CONTACT_MESSAGE,
+  MIN_CONTACT_NAME,
+} from "@/components/site/form-validation";
 
 const initial = {
   name: "",
@@ -15,166 +29,130 @@ const initial = {
   company: "", // honeypot
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type Values = typeof initial;
 
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null;
-  return (
-    <span id={id} className="mt-2 block text-sm text-red-400">
-      {message}
-    </span>
-  );
+/** Mirrors the limits in `handleContact` (worker/routes/public.js). */
+function validate(values: Values) {
+  const errors: Record<string, string> = {};
+  const name = values.name.trim();
+  const email = values.email.trim();
+  const message = values.message.trim();
+
+  if (!name) errors.name = "Please tell us your name.";
+  else if (name.length < MIN_CONTACT_NAME) errors.name = "That looks a little short — please add your name.";
+  else if (name.length > MAX_NAME) errors.name = `Please keep this under ${MAX_NAME} characters.`;
+
+  if (!email) errors.email = "Please add an email so we can reply.";
+  else if (!isEmail(email)) errors.email = "That doesn't look like a valid email address.";
+
+  if (!message) errors.message = "Please write a message.";
+  else if (message.length < MIN_CONTACT_MESSAGE)
+    errors.message = "A little more, please — a sentence is enough.";
+  else if (message.length > MAX_MESSAGE)
+    errors.message = `Please keep this under ${MAX_MESSAGE} characters.`;
+
+  return errors;
 }
 
-export function ContactForm() {
-  const [form, setForm] = useState(initial);
-  const [errors, setErrors] = useState<Errors>({});
-  const [status, setStatus] = useState<Status>({ type: "idle" });
-  const [loading, setLoading] = useState(false);
-
-  const set = (key: keyof typeof initial) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }));
-    setErrors((prev) => {
-      if (!(key in prev)) return prev;
-      const next = { ...prev };
-      delete next[key as keyof Errors];
-      return next;
-    });
+const success = (data: Record<string, unknown>, values: Values) => {
+  void data;
+  const email = values.email.trim();
+  return {
+    message: "Message received — thank you.",
+    detail: "A person reads it. Never a form letter.",
+    next: [
+      "A human will read it and reply — usually within 72 hours.",
+      email ? `We'll reply to ${email}.` : "We couldn't find an email, so we can't reply.",
+      "If it belongs with someone specific, we'll say so when we reply.",
+    ],
   };
+};
 
-  function validate(): Errors {
-    const next: Errors = {};
-    if (!form.name.trim()) next.name = "Please tell us your name.";
-    if (!form.email.trim()) next.email = "Please add an email so we can reply.";
-    else if (!EMAIL_RE.test(form.email.trim())) next.email = "That doesn't look like a valid email address.";
-    if (!form.message.trim()) next.message = "Please write a message.";
-    return next;
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const found = validate();
-    if (Object.keys(found).length > 0) {
-      setErrors(found);
-      setStatus({ type: "error", message: "Please fix the highlighted fields and try again." });
-      return;
-    }
-    setErrors({});
-    setLoading(true);
-    setStatus({ type: "idle" });
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
-        setForm(initial);
-        setStatus({
-          type: "ok",
-          message: "Message received. A human will read it — expect a reply within 72 hours.",
-        });
-      } else if (res.status === 422) {
-        setStatus({ type: "error", message: "Some details were missing or invalid. Please check and try again." });
-      } else {
-        setStatus({ type: "error", message: "Something went wrong. Please try again in a moment." });
-      }
-    } catch {
-      setStatus({ type: "error", message: "Network error. Please try again." });
-    } finally {
-      setLoading(false);
-    }
-  }
+export function ContactForm() {
+  const { values, errors, status, pending, formRef, set, submit, reset } = useFormSubmit({
+    endpoint: "/api/contact",
+    initial,
+    validate,
+    success,
+  });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid gap-8 max-w-2xl">
-      <Reveal y={16}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <div>
-            <Field label="Name" required>
+    <form ref={formRef} onSubmit={submit} noValidate className="grid max-w-2xl gap-8">
+      {status.type === "ok" ? (
+        <FormStatus status={status} onReset={reset} />
+      ) : (
+        <>
+          <Reveal y={16}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field label="Name" required id="contact-name" error={errors.name}>
+                <TextInput
+                  name="name"
+                  value={values.name}
+                  onChange={set("name")}
+                  maxLength={MAX_NAME}
+                  autoComplete="name"
+                />
+              </Field>
+              <Field label="Email" required id="contact-email" error={errors.email}>
+                <TextInput
+                  type="email"
+                  inputMode="email"
+                  name="email"
+                  value={values.email}
+                  onChange={set("email")}
+                  maxLength={MAX_EMAIL}
+                  autoComplete="email"
+                />
+              </Field>
+            </div>
+          </Reveal>
+
+          <Reveal y={16} delay={80}>
+            <Field
+              label="Subject"
+              hint="Optional — a few words on what this is about."
+              id="contact-subject"
+              error={errors.subject}
+            >
               <TextInput
-                id="contact-name"
-                name="name"
-                value={form.name}
-                onChange={set("name")}
-                required
-                autoComplete="name"
-                aria-invalid={errors.name ? true : undefined}
-                aria-describedby={errors.name ? "contact-name-error" : undefined}
+                name="subject"
+                value={values.subject}
+                onChange={set("subject")}
+                maxLength={MAX_SUBJECT}
               />
             </Field>
-            <FieldError id="contact-name-error" message={errors.name} />
-          </div>
-          <div>
-            <Field label="Email" required>
-              <TextInput
-                id="contact-email"
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={set("email")}
-                required
-                autoComplete="email"
-                aria-invalid={errors.email ? true : undefined}
-                aria-describedby={errors.email ? "contact-email-error" : undefined}
+          </Reveal>
+
+          <Reveal y={16} delay={160}>
+            <Field label="Message" required id="contact-message" error={errors.message}>
+              <TextArea
+                name="message"
+                value={values.message}
+                onChange={set("message")}
+                maxLength={MAX_MESSAGE}
               />
             </Field>
-            <FieldError id="contact-email-error" message={errors.email} />
-          </div>
-        </div>
-      </Reveal>
+          </Reveal>
 
-      <Reveal y={16} delay={80}>
-        <Field label="Subject" hint="Optional — a few words on what this is about.">
-          <TextInput id="contact-subject" name="subject" value={form.subject} onChange={set("subject")} />
-        </Field>
-      </Reveal>
+          <Honeypot name="company" value={values.company} onChange={set("company")} />
 
-      <Reveal y={16} delay={160}>
-        <div>
-          <Field label="Message" required>
-            <TextArea
-              id="contact-message"
-              name="message"
-              value={form.message}
-              onChange={set("message")}
-              required
-              aria-invalid={errors.message ? true : undefined}
-              aria-describedby={errors.message ? "contact-message-error" : undefined}
-            />
-          </Field>
-          <FieldError id="contact-message-error" message={errors.message} />
-        </div>
-      </Reveal>
+          <Reveal y={16} delay={220}>
+            <div className="flex flex-wrap items-center gap-6 pt-2">
+              <SubmitButton loading={pending} loadingLabel="Sending message…">
+                Send message
+              </SubmitButton>
+              <FormStatus status={status} />
+            </div>
+          </Reveal>
 
-      {/* Honeypot — hidden from people, catches bots. */}
-      <input
-        type="text"
-        name="company"
-        value={form.company}
-        onChange={set("company")}
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        className="hidden"
-      />
-
-      <Reveal y={16} delay={220}>
-        <div className="flex flex-wrap items-center gap-6 pt-2" aria-live="polite">
-          <SubmitButton loading={loading}>Send message</SubmitButton>
-          <FormStatus status={status} />
-        </div>
-      </Reveal>
-
-      <Reveal y={16} delay={280}>
-        <p className="text-sm text-muted-foreground max-w-xl">
-          We read every message ourselves and never pass your details to anyone else.
-          If it belongs with someone specific, we'll say so when we reply.
-        </p>
-      </Reveal>
+          <Reveal y={16} delay={280}>
+            <ReassuranceNote>
+              We read every message ourselves and never pass your details to anyone else. If it
+              belongs with someone specific, we&apos;ll say so when we reply.
+            </ReassuranceNote>
+          </Reveal>
+        </>
+      )}
     </form>
   );
 }

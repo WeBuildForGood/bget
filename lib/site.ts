@@ -4,22 +4,22 @@ import type { Metadata } from "next";
  * Single source of truth for site-wide metadata and links.
  * Import this anywhere instead of hard-coding the name/URL.
  *
- * NOTE: while there is no custom domain, the canonical origin is the
- * Cloudflare Workers URL. Swap `NEXT_PUBLIC_SITE_URL` (or the fallback
- * below) once a domain is purchased — nothing else needs to change.
+ * The canonical origin is the production custom domain. Override it for
+ * staging/preview builds with `NEXT_PUBLIC_SITE_URL` — every canonical tag,
+ * sitemap entry, robots directive, and JSON-LD `@id` derives from `url`.
  */
 export const SITE = {
   name: "Build For Good",
   shortName: "Build For Good",
   tagline: "Build. Grow. Evolve. Together.",
-  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://buildforgood.nikhilnagpure203.workers.dev").replace(/\/$/, ""),
+  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://buildforgood.world").replace(/\/$/, ""),
   description:
     "Build For Good is a global, multidisciplinary community for turning meaningful problems into collective action. Exceptional people, across every field, building things that matter — together.",
   shortDescription: "A global community turning meaningful problems into collective action.",
   founder: "Nikhil Nagpure",
   locale: "en_US",
-  github: "https://github.com/5h4d0wn1k/bget",
-  email: "hello@buildforgood.org",
+  github: "https://github.com/webuildforgood",
+  email: "hello@buildforgood.world",
   keywords: [
     "Build For Good",
     "community",
@@ -48,33 +48,79 @@ export function pageMetadata({
   description,
   path,
   type = "website",
+  author,
+  publishedTime,
+  modifiedTime,
 }: {
   title: string;
   description: string;
   path: string;
   type?: "website" | "article";
+  author?: string;
+  publishedTime?: string;
+  modifiedTime?: string;
 }): Metadata {
   const fullTitle = `${title} — ${SITE.name}`;
+  const ogImage = { url: "/og.png", width: 1200, height: 630, alt: fullTitle };
+
+  if (type === "article") {
+    return {
+      title,
+      description,
+      alternates: { canonical: path },
+      openGraph: {
+        type: "article",
+        url: path,
+        siteName: SITE.name,
+        title: fullTitle,
+        description,
+        locale: SITE.locale,
+        images: [ogImage],
+        authors: [author || SITE.founder],
+        publishedTime: publishedTime || undefined,
+        modifiedTime: modifiedTime || undefined,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: fullTitle,
+        description,
+        images: ["/og.png"],
+      },
+      other: {
+        "linkedin:owner": SITE.founder,
+        "linkedin:owner:type": "person",
+        "pin:media": "/og.png",
+        "pin:url": path,
+        "pin:description": fullTitle,
+      },
+    };
+  }
+
   return {
     title,
     description,
     alternates: { canonical: path },
     openGraph: {
-      type,
+      type: "website",
       url: path,
       siteName: SITE.name,
       title: fullTitle,
       description,
       locale: SITE.locale,
-      images: [
-        { url: "/og.png", width: 1200, height: 630, alt: `${SITE.name} — ${SITE.tagline}` },
-      ],
+      images: [ogImage],
     },
     twitter: {
       card: "summary_large_image",
       title: fullTitle,
       description,
       images: ["/og.png"],
+    },
+    other: {
+      "linkedin:owner": SITE.founder,
+      "linkedin:owner:type": "person",
+      "pin:media": "/og.png",
+      "pin:url": path,
+      "pin:description": fullTitle,
     },
   };
 }

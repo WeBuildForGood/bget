@@ -1,25 +1,33 @@
 # Contributing to Build For Good
 
-Thanks for helping improve the Build For Good website. This is a small, deliberately
-simple static site — contributions that keep it that way are the most welcome.
+Thanks for helping improve the Build For Good website. It's a small, deliberately
+simple static site served by a Cloudflare Worker — contributions that keep it
+that way are the most welcome.
 
-**Quality over quantity** applies to contributions too: one focused pull
-request that fixes a real problem beats five that add noise. The same bar we
-hold for community membership — character before capability, careful work over
-volume — applies here.
+**Quality over quantity** applies to contributions too: one focused pull request
+that fixes a real problem beats five that add noise. The same bar we hold for
+community membership — character before capability, careful work over volume —
+applies here.
 
 ## Getting started
 
+Requires Node ≥ 20.
+
 ```bash
-git clone https://github.com/5h4d0wn1k/bget.git
+git clone https://github.com/webuildforgood.git
 cd bget
 npm ci
-npm run build
-npm run preview
-# → http://127.0.0.1:8787
+
+# Frontend only (Next dev server — no /api/*; those live in the Worker):
+npm run dev
+
+# Full site + API locally, exactly as deployed:
+npm run build     # required: the Worker serves the static export from out/
+npm run preview   # wrangler dev  → http://127.0.0.1:8787
 ```
 
-The site is a Next.js static export served by Cloudflare Workers. Use `npm run preview` to exercise forms and the Worker API locally; `npm run dev` only serves the frontend.
+`npm run dev` renders the pages but has **no** `/api/*` — use `npm run preview`
+to exercise the forms and the Worker API end to end (with local D1).
 
 ## The flow: fork → branch → PR
 
@@ -28,71 +36,84 @@ The site is a Next.js static export served by Cloudflare Workers. Use `npm run p
    git checkout -b fix/short-description
    ```
 2. **Make your changes.** Keep them scoped — one idea per pull request.
-3. **Test locally** (see below). Both checks must pass before you open a PR.
-4. **Push and open a pull request** against `main`. Fill in the PR template:
-   what changed and *why*.
+3. **Check locally** (see below) before opening the PR.
+4. **Push and open a pull request** against `main`, and fill in the PR template
+   (`.github/PULL_REQUEST_TEMPLATE.md`): what changed and *why*.
 5. **Respond to review.** Small, reviewable diffs get reviewed quickly.
+
+`main` is protected: CI must pass, at least one review is required, and direct
+pushes are not allowed.
+
+## Checking your work locally
+
+Run these before opening a PR:
+
+```bash
+# Unit tests (Node's built-in runner; covers worker/lib/*)
+npm test
+
+# Type-check
+npm run typecheck        # same as: npx tsc --noEmit
+
+# The build gate CI enforces — a successful static export to out/
+npm run build
+
+# Optional: exercise the forms + API end to end (build first)
+npm run build && npm run preview
+```
+
+Notes on the commands:
+
+- **`npm test`** runs `node --test tests/` — the zero-dependency unit suite in
+  `tests/` (rate limiting, slug generation, input validation in
+  `worker/lib/*.js`). Add a `*.test.mjs` file there and it is picked up
+  automatically.
+- **`npm run lint`** and **`npm run typecheck`** both run `tsc --noEmit`; there
+  is no ESLint setup in this repository.
+- **`npm run preview`** (`wrangler dev`) runs the built Worker with a local D1,
+  so the `/api/*` routes work end to end; `npm run dev` does not serve them.
 
 ## What makes a good pull request
 
-- **Tests pass.** `tests/static_check.py` and `tests/smoke.py` both pass
-  locally (CI runs them on every PR).
-- **No console errors.** Open DevTools, reload, and check the Console and
-  Network tabs. Nothing red.
-- **Design system rules are respected:**
-  - Type is **Inter**, primary text is near-black **`#111111`**, sections are
-    separated by **hairline borders** (`border-brand-border`, `#e7e5de`) —
-    not heavy rules or drop shadows.
-  - Use the existing tokens in `css/theme.css` (mirrored as `brand.*` in
-    Tailwind) instead of one-off hex values.
-  - Buttons are pills, headings use tight tracking and light weights. Match
-    what is already on the page.
-- **Relative paths only.** Never use root-absolute URLs (`src="/css/x.css"`)
-  — the site is served from `https://5h4d0wn1k.github.io/bget/`, a subpath.
-- **Shared chrome stays shared.** `index.html`, `apply.html` and
-  `manifesto.html` each contain `<!-- SHARED:HEADER:START -->` /
-  `<!-- SHARED:HEADER:END -->` and the matching `FOOTER` markers around the
-  header and footer. If you touch that chrome, keep the markers in place,
-  balanced and in the same order, and update all three pages consistently.
-- **Docs updated.** If you change behaviour, commands or structure, update
+- **No regressions.** `npm test` and `npm run typecheck` pass, and
+  `npm run build` succeeds.
+- **No console errors.** Open DevTools, reload the affected pages, and check the
+  Console and Network tabs.
+- **Docs updated.** If you change behaviour, commands, or structure, update
   `README.md` (and this file, if the process itself changes).
+- **No secrets.** Never commit credentials or `.env` files — see
+  [SECURITY.md](SECURITY.md).
 
-## Running the tests locally
+## Code style
 
-```bash
-# 1. Static checks — HTML tag balance, duplicate ids, one <h1> per page,
-#    anchor/link resolution, no root-absolute paths, shared markers.
-python3 tests/static_check.py
-
-# 2. Syntax-check the JavaScript
-for f in js/*.js; do node --check "$f"; done
-
-# 3. Browser smoke test (needs Playwright + Chromium, one-time install)
-pip install playwright
-playwright install --with-deps chromium
-
-python3 -m http.server 8000 &
-BASE_URL=http://127.0.0.1:8000 python3 tests/smoke.py
-```
-
-Both scripts exit non-zero on failure and print a clear summary. CI
-(`.github/workflows/ci.yml`) runs exactly these steps on every pull request.
-
-The smoke test never contacts `formsubmit.co` — any such request is
-intercepted and answered with fake JSON, so running it cannot submit a real
-application.
+- **TypeScript, Next.js App Router.** Server logic belongs in `worker/` (the
+  Worker); page components live under `app/`. Match the surrounding patterns.
+- **Design tokens, not one-off values.** Colours and radii are CSS custom
+  properties defined in `app/globals.css` (dark, `oklch` based — e.g.
+  `--background`, `--foreground`, `--border`, `--primary`). Reuse them, or the
+  Tailwind utilities generated from them, instead of hard-coding hex values.
+- **Fonts** are loaded with `next/font/google` in `app/layout.tsx` (Inter,
+  JetBrains Mono). Headings and display numbers share the Inter
+  stack via `.font-display`; use the existing font variables.
+- **Components.** Reuse the shadcn-style primitives in `components/ui/` and the
+  shared form helpers in `components/site/` rather than building new ones.
+  `lucide-react` provides icons.
+- **Keep API changes in step with the docs.** The public and admin routes are
+  documented in `README.md`; update it if you add or change an endpoint.
+- **Static export.** The app is `output: 'export'` — no runtime Node server, so
+  avoid APIs that require one.
 
 ## Reporting bugs and proposing features
 
-Use the [issue templates](../../issues/new/choose). For security issues,
-follow [SECURITY.md](SECURITY.md) instead — please do not open a public issue
-for vulnerabilities.
+Use the issue templates under [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
+For security issues, follow [SECURITY.md](SECURITY.md) instead — please do not
+open a public issue for vulnerabilities.
 
 ## Code of conduct
 
-This project follows the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md).
-Be thoughtful, be kind, be precise. Enforcement reports go to
-nikhilnagpure1111@gmail.com.
+This project follows the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). Be
+thoughtful, be kind, be precise. Enforcement reports go to
+hello@buildforgood.world.
 
 ## License
 

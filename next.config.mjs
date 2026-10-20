@@ -7,7 +7,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Production hardening. All of these are compatible with `output: 'export'`
+  // (nothing here requires a Node server at request time).
+  poweredByHeader: false,
+  compress: true,
+  productionBrowserSourceMaps: false,
   images: {
+    // Static export can't run the Next image optimizer, so we ship pre-built
+    // WebP variants from `/public/images` and reference them directly.
     unoptimized: true,
   },
 }

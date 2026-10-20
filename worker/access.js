@@ -113,7 +113,7 @@ async function verifySignature(header, payload, signature, jwk) {
  *
  * @param {Request} request
  * @param {Record<string, string|undefined>} env
- * @returns {Promise<{ok: true, email: string} | {ok: false, reason: string}>}
+ * @returns {Promise<{ok: true, email: string, service?: boolean} | {ok: false, reason: string}>}
  */
 export async function verifyAccess(request, env) {
   const teamDomain = normaliseTeamDomain(env.ACCESS_TEAM_DOMAIN);
@@ -174,7 +174,14 @@ export async function verifyAccess(request, env) {
   // --- Claims ------------------------------------------------------------
   const now = Math.floor(Date.now() / 1000);
 
-  if (typeof claims.exp === "number" && claims.exp < now - CLOCK_SKEW_SECONDS) {
+  // Cloudflare Access ALWAYS issues `exp` (and `iss`) — on interactive
+  // logins AND service-token assertions alike — so a signature-valid token
+  // missing either is not an Access token. Reject rather than trust: the old
+  // "check only if present" logic accepted a token without `exp` forever.
+  if (typeof claims.exp !== "number" || !Number.isFinite(claims.exp)) {
+    return { ok: false, reason: "missing_exp" };
+  }
+  if (claims.exp < now - CLOCK_SKEW_SECONDS) {
     return { ok: false, reason: "expired" };
   }
   if (typeof claims.nbf === "number" && claims.nbf > now + CLOCK_SKEW_SECONDS) {
@@ -187,17 +194,30 @@ export async function verifyAccess(request, env) {
     : audClaim === audience;
   if (!audOk) return { ok: false, reason: "invalid_audience" };
 
-  if (claims.iss && claims.iss !== teamDomain) {
+  // The issuer must be THIS team's Access domain. Access tokens carry
+  // `iss: "https://<team>.cloudflareaccess.com"` (no trailing slash), which
+  // matches the normalised `teamDomain` above (e.g.
+  // "https://shadownik.cloudflareaccess.com"). A missing `iss` is rejected
+  // too — previously any truthy-or-absent issuer passed.
+  if (typeof claims.iss !== "string" || claims.iss !== teamDomain) {
     return { ok: false, reason: "invalid_issuer" };
   }
 
+  // Interactive logins carry an `email` claim. A Cloudflare Access *service
+  // token* (machine-to-machine) carries neither `email` nor a usable `sub`
+  // (Access sets `sub` to the empty string) — its identity is `common_name`.
+  // Accept all three so the Navrix dashboard (via a service token) can call
+  // this API alongside humans signing in through Access.
   const email =
     (typeof claims.email === "string" && claims.email) ||
     (typeof claims.sub === "string" && claims.sub) ||
+    (typeof claims.common_name === "string" && claims.common_name) ||
     "";
   if (!email) return { ok: false, reason: "missing_identity" };
 
-  return { ok: true, email };
+  const isServiceToken = claims.type === "app" || typeof claims.common_name === "string";
+
+  return { ok: true, email, service: isServiceToken };
 }
 
 /** Exposed for tests / diagnostics. */

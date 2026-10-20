@@ -9,13 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import { SITE } from "@/lib/site";
 import { cn } from "@/lib/utils";
-import {
-  apiFetch,
-  COLLECTIONS,
-  isUnauthorized,
-  type CollectionKey,
-  type Summary,
-} from "./config";
+import { apiRequest, errorMessage, isUnauthorizedStatus } from "./api";
+import { COLLECTIONS, type CollectionKey, type Summary } from "./config";
 import { CollectionPanel } from "./collection-panel";
 import { SummaryCards } from "./summary-cards";
 
@@ -23,53 +18,61 @@ type AuthState = "loading" | "authorised" | "unauthorised" | "error";
 
 export function AdminDashboard() {
   const [auth, setAuth] = useState<AuthState>("loading");
+  const [authError, setAuthError] = useState("");
   const [email, setEmail] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [summaryError, setSummaryError] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [active, setActive] = useState<CollectionKey>("applications");
   const [reloadKey, setReloadKey] = useState(0);
 
   const goUnauthorised = useCallback(() => setAuth("unauthorised"), []);
 
   const loadSummary = useCallback(async () => {
-    setSummaryError(false);
-    const { res, data } = await apiFetch("/api/admin/summary");
-    if (isUnauthorized(res)) {
+    setSummaryError(null);
+    const result = await apiRequest<{ ok?: boolean; summary?: Summary }>(
+      "/api/admin/summary",
+    );
+    if (isUnauthorizedStatus(result.status)) {
       goUnauthorised();
       return;
     }
-    if (!res.ok || !data || data.ok !== true || !data.summary) {
-      setSummaryError(true);
+    if (!result.ok || !result.data || result.data.ok !== true || !result.data.summary) {
+      setSummaryError(
+        errorMessage(result.data, "Couldn't load the summary counts."),
+      );
       return;
     }
-    setSummary(data.summary as Summary);
+    setSummary(result.data.summary);
   }, [goUnauthorised]);
 
-  // Resolve the signed-in identity exactly once (no retry loops).
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { res, data } = await apiFetch("/api/admin/me");
-      if (cancelled) return;
-      if (isUnauthorized(res)) {
-        setAuth("unauthorised");
-        return;
-      }
-      if (!res.ok || !data || data.ok !== true) {
-        setAuth("error");
-        return;
-      }
-      setEmail(typeof data.email === "string" ? data.email : "");
-      setAuth("authorised");
-      void loadSummary();
-    })();
-    return () => {
-      cancelled = true;
-    };
+  // Resolve the signed-in identity; reused by the initial load and Retry.
+  const checkIdentity = useCallback(async () => {
+    const result = await apiRequest<{ ok?: boolean; email?: string }>(
+      "/api/admin/me",
+    );
+    if (isUnauthorizedStatus(result.status)) {
+      setAuth("unauthorised");
+      return;
+    }
+    if (!result.ok || !result.data || result.data.ok !== true) {
+      setAuthError(
+        errorMessage(result.data, "We couldn't reach the admin service."),
+      );
+      setAuth("error");
+      return;
+    }
+    setAuthError("");
+    setEmail(typeof result.data.email === "string" ? result.data.email : "");
+    setAuth("authorised");
+    void loadSummary();
   }, [loadSummary]);
 
+  useEffect(() => {
+    void checkIdentity();
+  }, [checkIdentity]);
+
   const refreshAll = useCallback(() => {
-    setReloadKey((k) => k + 1);
+    setReloadKey((key) => key + 1);
     void loadSummary();
   }, [loadSummary]);
 
@@ -100,27 +103,16 @@ export function AdminDashboard() {
             <Notice
               icon={<ShieldAlert className="size-8 text-red-300" />}
               title="Couldn't verify access"
-              body="We couldn't reach the admin service. Check your connection and try again."
+              body={
+                authError ||
+                "We couldn't reach the admin service. Check your connection and try again."
+              }
             >
               <Button
                 variant="outline"
                 onClick={() => {
                   setAuth("loading");
-                  setReloadKey((k) => k + 1);
-                  void (async () => {
-                    const { res, data } = await apiFetch("/api/admin/me");
-                    if (isUnauthorized(res)) {
-                      setAuth("unauthorised");
-                      return;
-                    }
-                    if (!res.ok || !data || data.ok !== true) {
-                      setAuth("error");
-                      return;
-                    }
-                    setEmail(typeof data.email === "string" ? data.email : "");
-                    setAuth("authorised");
-                    void loadSummary();
-                  })();
+                  void checkIdentity();
                 }}
               >
                 Try again

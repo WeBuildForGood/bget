@@ -14,7 +14,7 @@ const FALLBACK_404 = `<!doctype html><html lang="en"><head><meta charset="utf-8"
 <body style="margin:0;background:#07060a;color:#f4f2ee;font-family:system-ui,sans-serif">
 <main style="max-width:640px;margin:0 auto;padding:96px 24px">
 <p style="color:#eca8d6;text-transform:uppercase;letter-spacing:.18em;font-size:.7rem">404</p>
-<h1 style="font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:2.6rem;margin:.2em 0">Nothing here.</h1>
+<h1 style="font-family:'Inter',system-ui,sans-serif;font-weight:600;font-size:2.6rem;margin:.2em 0">Nothing here.</h1>
 <p><a href="/" style="color:#eca8d6;text-decoration:none">Back to Build For Good</a></p>
 </main></body></html>`;
 

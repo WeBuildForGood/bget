@@ -5,9 +5,17 @@ import type { CSSProperties, ReactNode } from "react";
 
 /**
  * Observe an element and report the first time it enters the viewport.
- * Honours `prefers-reduced-motion` by reporting visible immediately.
+ * Honours `prefers-reduced-motion` (and missing IntersectionObserver support)
+ * by reporting visible immediately, so content is never stuck at opacity 0.
+ *
+ * @param threshold Fraction of the element that must be visible.
+ * @param once      Stop observing after the first reveal (default). Set false
+ *                  to keep reporting when the element leaves the viewport.
  */
-export function useInView<T extends HTMLElement = HTMLElement>(threshold = 0.15) {
+export function useInView<T extends HTMLElement = HTMLElement>(
+  threshold = 0.15,
+  once = true,
+) {
   const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
 
@@ -17,6 +25,7 @@ export function useInView<T extends HTMLElement = HTMLElement>(threshold = 0.15)
     if (
       typeof window === "undefined" ||
       typeof window.matchMedia !== "function" ||
+      typeof IntersectionObserver === "undefined" ||
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
     ) {
       setInView(true);
@@ -26,14 +35,16 @@ export function useInView<T extends HTMLElement = HTMLElement>(threshold = 0.15)
       ([entry]) => {
         if (entry.isIntersecting) {
           setInView(true);
-          observer.disconnect();
+          if (once) observer.unobserve(el);
+        } else if (!once) {
+          setInView(false);
         }
       },
       { threshold, rootMargin: "0px 0px -8% 0px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [threshold]);
+  }, [threshold, once]);
 
   return { ref, inView };
 }

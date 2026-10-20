@@ -1,18 +1,22 @@
 "use client";
 
-import { useState } from "react";
 import { Reveal } from "@/components/motion/reveal";
 import {
   Field,
-  TextInput,
-  TextArea,
+  FormStatus,
+  Honeypot,
   Select,
   SubmitButton,
-  FormStatus,
+  TextArea,
+  TextInput,
 } from "@/components/site/form-ui";
-
-type Status = { type: "idle" | "ok" | "error"; message?: string };
-type Errors = Record<string, string>;
+import { useFormSubmit } from "@/components/site/use-form-submit";
+import {
+  isEmail,
+  MAX_DISCIPLINES,
+  MAX_EMAIL,
+  MAX_LOCATION,
+} from "@/components/site/form-validation";
 
 const STAGES = ["idea", "prototype", "pilot", "live", "scaled"] as const;
 
@@ -34,315 +38,298 @@ const initial = {
   company: "", // honeypot — real people never see or fill this
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type Values = typeof initial;
 
-function validate(form: typeof initial): Errors {
-  const errors: Errors = {};
-  if (!form.title.trim()) errors.title = "Give the project a title.";
-  if (!form.one_liner.trim()) errors.one_liner = "Add a one-line summary.";
-  if (!form.description.trim()) errors.description = "Describe what it is and why it matters.";
-  if (!form.lead_name.trim()) errors.lead_name = "Tell us who leads this.";
-  if (!form.lead_email.trim()) errors.lead_email = "An email is required.";
-  else if (!EMAIL_RE.test(form.lead_email.trim())) errors.lead_email = "Enter a valid email address.";
+/*
+ * Length limits mirrored from `createProject` (worker/routes/public.js), which
+ * rejects required fields that are too short with `{ error: "invalid", fields }`
+ * and caps every value with `clean(value, max)`. The shared constants cover the
+ * fields the server validates the same way elsewhere; the rest live here so the
+ * browser rejects exactly what the API would.
+ */
+const MIN_TITLE = 3;
+const MAX_TITLE = 200;
+const MIN_ONE_LINER = 10;
+const MAX_ONE_LINER = 300;
+const MIN_DESCRIPTION = 20;
+const MAX_DESCRIPTION = 10000;
+const MIN_LEAD_NAME = 2;
+const MAX_LEAD_NAME = 120;
+const MAX_URL = 500;
+const MAX_TEAM = 1000;
+const MAX_TAGS = 500;
+
+/** Mirrors the limits in `createProject` (worker/routes/public.js). */
+function validate(values: Values): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const title = values.title.trim();
+  const oneLiner = values.one_liner.trim();
+  const description = values.description.trim();
+  const leadName = values.lead_name.trim();
+  const leadEmail = values.lead_email.trim();
+
+  if (!title) errors.title = "Give the project a title.";
+  else if (title.length < MIN_TITLE) errors.title = "A little more, please — a few words is enough.";
+  else if (title.length > MAX_TITLE) errors.title = `Please keep this under ${MAX_TITLE} characters.`;
+
+  if (!oneLiner) errors.one_liner = "Add a one-line summary.";
+  else if (oneLiner.length < MIN_ONE_LINER)
+    errors.one_liner = "A little more, please — around a sentence works well.";
+  else if (oneLiner.length > MAX_ONE_LINER)
+    errors.one_liner = `Please keep this under ${MAX_ONE_LINER} characters.`;
+
+  if (!description) errors.description = "Describe what it is and why it matters.";
+  else if (description.length < MIN_DESCRIPTION)
+    errors.description = "Please add a bit more detail — a sentence or two.";
+  else if (description.length > MAX_DESCRIPTION)
+    errors.description = `Please keep this under ${MAX_DESCRIPTION} characters.`;
+
+  if (!leadName) errors.lead_name = "Tell us who leads this.";
+  else if (leadName.length < MIN_LEAD_NAME)
+    errors.lead_name = "That looks a little short — please add a name.";
+  else if (leadName.length > MAX_LEAD_NAME)
+    errors.lead_name = `Please keep this under ${MAX_LEAD_NAME} characters.`;
+
+  if (!leadEmail) errors.lead_email = "An email is required.";
+  else if (!isEmail(leadEmail)) errors.lead_email = "Enter a valid email address.";
+
   return errors;
 }
 
-/** Turn a 422 body into per-field messages when the Worker provides them. */
-function mapServerErrors(data: unknown): Errors {
-  const errors: Errors = {};
-  if (data && typeof data === "object") {
-    const body = data as Record<string, unknown>;
-    if (body.errors && typeof body.errors === "object") {
-      for (const [key, value] of Object.entries(body.errors as Record<string, unknown>)) {
-        if (typeof value === "string" && value.trim()) errors[key] = value;
-      }
-    }
-    if (body.error === "invalid_email") {
-      errors.lead_email = errors.lead_email ?? "Enter a valid email address.";
-    }
-  }
-  return errors;
-}
-
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null;
-  return (
-    <span id={id} className="mt-2 block text-xs text-red-400">
-      {message}
-    </span>
-  );
-}
+const success = (data: Record<string, unknown>) => {
+  void data;
+  return {
+    message:
+      "Received. Your project is queued for review — once a human approves it, it will appear in the showcase above.",
+  };
+};
 
 export function ProjectForm() {
-  const [form, setForm] = useState(initial);
-  const [errors, setErrors] = useState<Errors>({});
-  const [status, setStatus] = useState<Status>({ type: "idle" });
-  const [loading, setLoading] = useState(false);
-
-  const set =
-    (key: keyof typeof initial) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-      setForm((f) => ({ ...f, [key]: e.target.value }));
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const found = validate(form);
-    if (Object.keys(found).length > 0) {
-      setErrors(found);
-      setStatus({ type: "error", message: "Please fix the highlighted fields and try again." });
-      return;
-    }
-
-    setErrors({});
-    setLoading(true);
-    setStatus({ type: "idle" });
-
-    try {
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (res.ok && (data as { ok?: boolean }).ok) {
-        setForm(initial);
-        setErrors({});
-        setStatus({
-          type: "ok",
-          message:
-            "Received. Your project is queued for review — once a human approves it, it will appear in the showcase above.",
-        });
-      } else if (res.status === 422) {
-        const fieldErrors = mapServerErrors(data);
-        setErrors(fieldErrors);
-        setStatus({
-          type: "error",
-          message:
-            Object.keys(fieldErrors).length > 0
-              ? "Some details need fixing — see the highlighted fields."
-              : "Some required details are missing. Please review the form and try again.",
-        });
-      } else {
-        setStatus({
-          type: "error",
-          message: "Something went wrong. Please try again in a moment.",
-        });
-      }
-    } catch {
-      setStatus({ type: "error", message: "Network error. Please try again." });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const err = (key: string) => (errors[key] ? `${key}-error` : undefined);
+  const { values, errors, status, pending, formRef, set, submit, reset } = useFormSubmit({
+    endpoint: "/api/projects",
+    initial,
+    validate,
+    success,
+  });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid max-w-2xl gap-8">
-      <Reveal y={16}>
-        <Field label="Project title" required>
-          <TextInput
-            id="title"
-            name="title"
-            value={form.title}
-            onChange={set("title")}
-            required
-            aria-invalid={Boolean(errors.title)}
-            aria-describedby={err("title")}
-          />
-          <FieldError id="title-error" message={errors.title} />
-        </Field>
-      </Reveal>
+    <form ref={formRef} onSubmit={submit} noValidate className="grid max-w-2xl gap-8">
+      {status.type === "ok" ? (
+        <FormStatus status={status} onReset={reset} />
+      ) : (
+        <>
+          <Reveal y={16}>
+            <Field label="Project title" required id="project-title" error={errors.title}>
+              <TextInput
+                name="title"
+                value={values.title}
+                onChange={set("title")}
+                maxLength={MAX_TITLE}
+              />
+            </Field>
+          </Reveal>
 
-      <Reveal y={16} delay={50}>
-        <Field label="One-line summary" hint="What it is, in a sentence — the card blurb." required>
-          <TextInput
-            id="one_liner"
-            name="one_liner"
-            value={form.one_liner}
-            onChange={set("one_liner")}
-            required
-            aria-invalid={Boolean(errors.one_liner)}
-            aria-describedby={err("one_liner")}
-          />
-          <FieldError id="one_liner-error" message={errors.one_liner} />
-        </Field>
-      </Reveal>
-
-      <Reveal y={16} delay={100}>
-        <Field
-          label="Description"
-          hint="What it does, who it is for, and what stage the work has reached."
-          required
-        >
-          <TextArea
-            id="description"
-            name="description"
-            value={form.description}
-            onChange={set("description")}
-            required
-            aria-invalid={Boolean(errors.description)}
-            aria-describedby={err("description")}
-          />
-          <FieldError id="description-error" message={errors.description} />
-        </Field>
-      </Reveal>
-
-      <Reveal y={16} delay={150}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <Field label="Lead name" required>
-            <TextInput
-              id="lead_name"
-              name="lead_name"
-              value={form.lead_name}
-              onChange={set("lead_name")}
+          <Reveal y={16} delay={50}>
+            <Field
+              label="One-line summary"
+              hint="What it is, in a sentence — the card blurb."
               required
-              autoComplete="name"
-              aria-invalid={Boolean(errors.lead_name)}
-              aria-describedby={err("lead_name")}
-            />
-            <FieldError id="lead_name-error" message={errors.lead_name} />
-          </Field>
-          <Field label="Lead email" required>
-            <TextInput
-              id="lead_email"
-              type="email"
-              name="lead_email"
-              value={form.lead_email}
-              onChange={set("lead_email")}
+              id="project-one-liner"
+              error={errors.one_liner}
+            >
+              <TextInput
+                name="one_liner"
+                value={values.one_liner}
+                onChange={set("one_liner")}
+                maxLength={MAX_ONE_LINER}
+              />
+            </Field>
+          </Reveal>
+
+          <Reveal y={16} delay={100}>
+            <Field
+              label="Description"
+              hint="What it does, who it is for, and what stage the work has reached."
               required
-              autoComplete="email"
-              aria-invalid={Boolean(errors.lead_email)}
-              aria-describedby={err("lead_email")}
-            />
-            <FieldError id="lead_email-error" message={errors.lead_email} />
-          </Field>
-        </div>
-      </Reveal>
+              id="project-description"
+              error={errors.description}
+            >
+              <TextArea
+                name="description"
+                value={values.description}
+                onChange={set("description")}
+                maxLength={MAX_DESCRIPTION}
+              />
+            </Field>
+          </Reveal>
 
-      <Reveal y={16} delay={200}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <Field label="Disciplines" hint="e.g. software, hardware, medicine, design">
-            <TextInput
-              id="disciplines"
-              name="disciplines"
-              value={form.disciplines}
-              onChange={set("disciplines")}
-            />
-          </Field>
-          <Field label="Stage">
-            <Select id="stage" name="stage" value={form.stage} onChange={set("stage")}>
-              <option value="">Select a stage</option>
-              {STAGES.map((stage) => (
-                <option key={stage} value={stage}>
-                  {stage.charAt(0).toUpperCase() + stage.slice(1)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-      </Reveal>
+          <Reveal y={16} delay={150}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field label="Lead name" required id="project-lead-name" error={errors.lead_name}>
+                <TextInput
+                  name="lead_name"
+                  value={values.lead_name}
+                  onChange={set("lead_name")}
+                  maxLength={MAX_LEAD_NAME}
+                  autoComplete="name"
+                />
+              </Field>
+              <Field label="Lead email" required id="project-lead-email" error={errors.lead_email}>
+                <TextInput
+                  type="email"
+                  inputMode="email"
+                  name="lead_email"
+                  value={values.lead_email}
+                  onChange={set("lead_email")}
+                  maxLength={MAX_EMAIL}
+                  autoComplete="email"
+                />
+              </Field>
+            </div>
+          </Reveal>
 
-      <Reveal y={16} delay={250}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <Field label="Tags" hint="Comma separated — e.g. climate, open source, water">
-            <TextInput id="tags" name="tags" value={form.tags} onChange={set("tags")} />
-          </Field>
-          <Field label="Location">
-            <TextInput
-              id="location"
-              name="location"
-              value={form.location}
-              onChange={set("location")}
-              placeholder="City, country"
-            />
-          </Field>
-        </div>
-      </Reveal>
+          <Reveal y={16} delay={200}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field
+                label="Disciplines"
+                hint="e.g. software, hardware, medicine, design"
+                id="project-disciplines"
+                error={errors.disciplines}
+              >
+                <TextInput
+                  name="disciplines"
+                  value={values.disciplines}
+                  onChange={set("disciplines")}
+                  maxLength={MAX_DISCIPLINES}
+                />
+              </Field>
+              <Field label="Stage" id="project-stage" error={errors.stage}>
+                <Select name="stage" value={values.stage} onChange={set("stage")}>
+                  <option value="">Select a stage</option>
+                  {STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {stage.charAt(0).toUpperCase() + stage.slice(1)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          </Reveal>
 
-      <Reveal y={16} delay={300}>
-        <Field label="Team" hint="Names or roles of collaborators, if any.">
-          <TextInput id="team" name="team" value={form.team} onChange={set("team")} />
-        </Field>
-      </Reveal>
+          <Reveal y={16} delay={250}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field
+                label="Tags"
+                hint="Comma separated — e.g. climate, open source, water"
+                id="project-tags"
+                error={errors.tags}
+              >
+                <TextInput
+                  name="tags"
+                  value={values.tags}
+                  onChange={set("tags")}
+                  maxLength={MAX_TAGS}
+                />
+              </Field>
+              <Field label="Location" id="project-location" error={errors.location}>
+                <TextInput
+                  name="location"
+                  value={values.location}
+                  onChange={set("location")}
+                  maxLength={MAX_LOCATION}
+                  placeholder="City, country"
+                />
+              </Field>
+            </div>
+          </Reveal>
 
-      <Reveal y={16} delay={350}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <Field label="Website" hint="Optional.">
-            <TextInput
-              id="url"
-              name="url"
-              value={form.url}
-              onChange={set("url")}
-              placeholder="https://"
-            />
-          </Field>
-          <Field label="Repository" hint="Optional.">
-            <TextInput
-              id="repo"
-              name="repo"
-              value={form.repo}
-              onChange={set("repo")}
-              placeholder="https://github.com/…"
-            />
-          </Field>
-        </div>
-      </Reveal>
+          <Reveal y={16} delay={300}>
+            <Field
+              label="Team"
+              hint="Names or roles of collaborators, if any."
+              id="project-team"
+              error={errors.team}
+            >
+              <TextInput
+                name="team"
+                value={values.team}
+                onChange={set("team")}
+                maxLength={MAX_TEAM}
+              />
+            </Field>
+          </Reveal>
 
-      <Reveal y={16} delay={400}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <Field label="Live demo" hint="Optional.">
-            <TextInput
-              id="demo"
-              name="demo"
-              value={form.demo}
-              onChange={set("demo")}
-              placeholder="https://"
-            />
-          </Field>
-          <Field label="Cover image" hint="Optional — a direct image URL.">
-            <TextInput
-              id="cover_image"
-              name="cover_image"
-              value={form.cover_image}
-              onChange={set("cover_image")}
-              placeholder="https://…/cover.jpg"
-            />
-          </Field>
-        </div>
-      </Reveal>
+          <Reveal y={16} delay={350}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field label="Website" hint="Optional." id="project-url" error={errors.url}>
+                <TextInput
+                  name="url"
+                  value={values.url}
+                  onChange={set("url")}
+                  maxLength={MAX_URL}
+                  placeholder="https://"
+                />
+              </Field>
+              <Field label="Repository" hint="Optional." id="project-repo" error={errors.repo}>
+                <TextInput
+                  name="repo"
+                  value={values.repo}
+                  onChange={set("repo")}
+                  maxLength={MAX_URL}
+                  placeholder="https://github.com/…"
+                />
+              </Field>
+            </div>
+          </Reveal>
 
-      {/* Honeypot — hidden from people, catches bots. */}
-      <input
-        type="text"
-        id="company"
-        name="company"
-        value={form.company}
-        onChange={set("company")}
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        className="hidden"
-      />
+          <Reveal y={16} delay={400}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field label="Live demo" hint="Optional." id="project-demo" error={errors.demo}>
+                <TextInput
+                  name="demo"
+                  value={values.demo}
+                  onChange={set("demo")}
+                  maxLength={MAX_URL}
+                  placeholder="https://"
+                />
+              </Field>
+              <Field
+                label="Cover image"
+                hint="Optional — a direct image URL."
+                id="project-cover-image"
+                error={errors.cover_image}
+              >
+                <TextInput
+                  name="cover_image"
+                  value={values.cover_image}
+                  onChange={set("cover_image")}
+                  maxLength={MAX_URL}
+                  placeholder="https://…/cover.jpg"
+                />
+              </Field>
+            </div>
+          </Reveal>
 
-      <Reveal y={16} delay={450}>
-        <div className="flex flex-wrap items-center gap-6 pt-2">
-          <SubmitButton loading={loading}>Submit a project</SubmitButton>
-          <span aria-live="polite">
-            <FormStatus status={status} />
-          </span>
-        </div>
-      </Reveal>
+          <Honeypot name="company" value={values.company} onChange={set("company")} />
 
-      <Reveal y={16} delay={500}>
-        <p className="max-w-xl text-sm text-muted-foreground">
-          Every submission is reviewed by a person before it is published. Approved projects appear
-          in the showcase above with their current stage; you can ask us to update or remove yours
-          at any time.
-        </p>
-      </Reveal>
+          <Reveal y={16} delay={450}>
+            <div className="flex flex-wrap items-center gap-6 pt-2">
+              <SubmitButton loading={pending} loadingLabel="Sending project…">
+                Submit a project
+              </SubmitButton>
+              <FormStatus status={status} />
+            </div>
+          </Reveal>
+
+          <Reveal y={16} delay={500}>
+            <p className="max-w-xl text-sm text-muted-foreground">
+              Every submission is reviewed by a person before it is published. Approved projects
+              appear in the showcase above with their current stage; you can ask us to update or
+              remove yours at any time.
+            </p>
+          </Reveal>
+        </>
+      )}
     </form>
   );
 }

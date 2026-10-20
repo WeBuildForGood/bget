@@ -1,0 +1,8 @@
+# security.txt — RFC 9116 (https://www.rfc-editor.org/rfc/rfc9116)
+# Report a security issue in the Build For Good website or platform.
+
+Contact: mailto:hello@buildforgood.world
+Expires: 2027-10-15T00:00:00.000Z
+Canonical: https://buildforgood.world/.well-known/security.txt
+Preferred-Languages: en
+Policy: https://github.com/webuildforgood/blob/main/SECURITY.md

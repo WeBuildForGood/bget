@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageShell, Section } from "@/components/site/page-shell";
-import { JsonLd, webPageLd } from "@/components/seo/json-ld";
+import { JsonLd, breadcrumbLd, webPageLd } from "@/components/seo/json-ld";
 import { pageMetadata, SITE } from "@/lib/site";
 
 export const metadata: Metadata = pageMetadata({
   title: "About",
   description:
-    "Build For Good — a global network for turning meaningful problems into collective action. Founded by Nikhil Nagpure. Built with everyone who contributes.",
+    "A global, multidisciplinary community turning meaningful problems into collective action. Founded by Nikhil Nagpure and built by everyone who contributes.",
   path: "/about",
 });
 
 const pillars = [
   ["B — Build", "Build things that matter. Move from idea → action → experiment → real-world impact."],
   ["G — Grow", "Grow intellectually, technically, emotionally, ethically. Become more capable without becoming less human."],
-  ["E — Evolve", "Question yourself, accept criticism, change your mind when the evidence demands it."],
-  ["T — Together", "Collective intelligence accomplishes what isolated individuals cannot. Different disciplines, one problem."],
+  ["E — Evolve", "Question your assumptions, accept criticism, change your mind when the evidence demands it."],
+  ["T — Together", "Collective intelligence accomplishes what isolated individuals cannot. Different disciplines. One problem."],
 ];
 
 const disciplines = [
@@ -28,23 +28,29 @@ export default function AboutPage() {
   return (
     <>
       <JsonLd
-        data={webPageLd({
-          path: "/about",
-          name: `About ${SITE.name}`,
-          description:
-            "A global network for turning meaningful problems into collective action, founded by Nikhil Nagpure.",
-          type: "AboutPage",
-        })}
+        data={[
+          webPageLd({
+            path: "/about",
+            name: `About ${SITE.name}`,
+            description:
+              "A global network for turning meaningful problems into collective action, founded by Nikhil Nagpure.",
+            type: "AboutPage",
+          }),
+          breadcrumbLd([
+            { name: "Home", path: "/" },
+            { name: "About", path: "/about" },
+          ]),
+        ]}
       />
       <PageShell
         eyebrow="About"
-        title={<>A global network for turning<br />problems into action.</>}
-        lead="Build For Good is a multidisciplinary community of genuine, ambitious, curious, and compassionate people who want to become more capable while remaining deeply human. Founded by Nikhil Nagpure. Built with everyone who contributes."
+        title={<>A global network turning<br />problems into action.</>}
+        lead="Build For Good is a multidisciplinary community of ambitious, curious, and compassionate builders who want to become more capable without becoming less human. Founded by Nikhil Nagpure. Built by everyone who contributes."
       >
         <Section eyebrow="What the name means" title="Build. Grow. Evolve. Together.">
           <div className="grid md:grid-cols-2 gap-px bg-foreground/10 border border-foreground/10">
             {pillars.map(([k, v]) => (
-              <div key={k} className="card-glow bg-background p-8 lg:p-10">
+              <div key={k} className="card-glow bg-background p-6 sm:p-8 lg:p-10">
                 <h3 className="text-3xl font-display">{k}</h3>
                 <p className="mt-4 text-muted-foreground leading-relaxed">{v}</p>
               </div>
@@ -54,7 +60,7 @@ export default function AboutPage() {
 
         <Section
           eyebrow="Multidisciplinary by design"
-          title="Not just software. Every field that can help."
+          title="Not just software — every field that can help."
           muted
         >
           <div className="flex flex-wrap gap-3">
@@ -121,7 +127,7 @@ export default function AboutPage() {
               ["Stewards & Guides", "Moderation, onboarding, hosting, mentoring — all earned."],
               ["Members & contributors", "Confirmed members and anyone who contributed to a problem."],
             ].map(([k, v]) => (
-              <div key={k} className="card-glow bg-background p-8">
+              <div key={k} className="card-glow bg-background p-6 sm:p-8">
                 <h3 className="text-xl font-medium">{k}</h3>
                 <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{v}</p>
               </div>

@@ -8,29 +8,30 @@ const securityFeatures = [
     icon: Shield,
     title: "Character before capability",
     description: "We keep promises and do the right thing when it costs us.",
-    image: "/images/isolated.jpg",
+    image: "/images/isolated.webp",
   },
   {
     icon: Lock,
     title: "Intellectual humility",
     description: "We admit what we don't know and change our minds when evidence demands it.",
-    image: "/images/encrypted.jpg",
+    image: "/images/encrypted.webp",
   },
   {
     icon: Eye,
     title: "Generosity by default",
     description: "We help without keeping score and give credit freely.",
-    image: "/images/audit.jpg",
+    image: "/images/audit.webp",
   },
   {
     icon: FileCheck,
     title: "Follow-through",
     description: "We finish what we start and own what we take on.",
-    image: "/images/permissions.jpg",
+    image: "/images/permissions.webp",
   },
 ];
 
-const certifications = ["Honesty", "Humility", "Kindness", "Ownership"];
+// These are stated values, not earned certifications — named honestly.
+const values = ["Honesty", "Humility", "Kindness", "Ownership"];
 
 export function SecuritySection() {
   const [isVisible, setIsVisible] = useState(false);
@@ -57,12 +58,12 @@ export function SecuritySection() {
   }, []);
 
   return (
-    <section id="security" ref={sectionRef} className="relative py-32 lg:py-40 overflow-hidden">
+    <section id="security" ref={sectionRef} className="relative py-20 lg:py-40 overflow-hidden">
       {/* Background accent removed */}
       
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header */}
-        <div className="mb-20">
+        <div className="mb-12 lg:mb-20">
           <span className={`inline-flex items-center gap-4 text-sm font-mono text-muted-foreground mb-8 transition-all duration-700 ${
             isVisible ? "opacity-100" : "opacity-0"
           }`}>
@@ -71,7 +72,7 @@ export function SecuritySection() {
           </span>
           
           {/* Title — full width */}
-          <h2 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] mb-12 transition-all duration-1000 ${
+          <h2 className={`text-4xl sm:text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] mb-12 transition-all duration-1000 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           }`}>
             Brilliant is
@@ -92,7 +93,7 @@ export function SecuritySection() {
         {/* Main content */}
         <div className="grid lg:grid-cols-12 gap-6">
           {/* Large visual card */}
-          <div className={`lg:col-span-7 relative p-8 lg:p-12 border border-foreground/10 min-h-[400px] overflow-hidden transition-all duration-700 ${
+          <div className={`lg:col-span-7 relative p-6 sm:p-8 lg:p-12 border border-foreground/10 min-h-[300px] sm:min-h-[400px] overflow-hidden transition-all duration-700 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           }`}>
             {/* Dynamic feature image with cross-fade — desktop only */}
@@ -101,7 +102,12 @@ export function SecuritySection() {
                 <img
                   key={feature.image}
                   src={feature.image}
-                  alt={feature.title}
+                  alt=""
+                  aria-hidden="true"
+                  width={840}
+                  height={840}
+                  loading="lazy"
+                  decoding="async"
                   className="absolute h-3/4 w-3/4 object-contain object-right transition-opacity duration-500"
                   style={{ opacity: activeFeature === index ? 0.85 : 0 }}
                 />
@@ -109,24 +115,27 @@ export function SecuritySection() {
             </div>
             
             <div className="relative z-10">
-              <span className="font-mono text-sm text-muted-foreground">What we actually measure</span>
+              {/* This is a stated standard, not a measurement: "twelve" is the
+                  fixed number of written dimensions, verified in the manifesto.
+                  It is not a traffic, security, or performance metric. */}
+              <span className="font-mono text-sm text-muted-foreground">How we judge each other</span>
               <div className="mt-8">
                 <span className="text-7xl lg:text-8xl font-display">12</span>
                 <span className="block text-muted-foreground mt-2">Dimensions we hold each other to</span>
               </div>
             </div>
             
-            {/* Certification badges */}
-            <div className="absolute bottom-8 left-8 right-8 flex flex-wrap gap-2">
-              {certifications.map((cert, index) => (
+            {/* The stated values, in writing */}
+            <div className="absolute bottom-6 left-6 right-6 sm:bottom-8 sm:left-8 sm:right-8 flex flex-wrap gap-2">
+              {values.map((value, index) => (
                 <span
-                  key={cert}
+                  key={value}
                   className={`px-3 py-1 border border-foreground/10 text-xs font-mono text-muted-foreground transition-all duration-500 ${
                     isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
                   }`}
                   style={{ transitionDelay: `${index * 100 + 300}ms` }}
                 >
-                  {cert}
+                  {value}
                 </span>
               ))}
             </div>
@@ -137,7 +146,7 @@ export function SecuritySection() {
             {securityFeatures.map((feature, index) => (
               <div
                 key={feature.title}
-                className={`p-6 border transition-all duration-500 cursor-default ${
+                className={`p-4 sm:p-6 border transition-all duration-500 cursor-default ${
                   activeFeature === index 
                     ? "border-foreground/30 bg-foreground/[0.04]" 
                     : "border-foreground/10"

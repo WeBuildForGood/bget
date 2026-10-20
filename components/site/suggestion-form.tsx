@@ -1,11 +1,25 @@
 "use client";
 
-import { useState } from "react";
 import { Reveal } from "@/components/motion/reveal";
-import { Field, TextInput, TextArea, SubmitButton, FormStatus } from "@/components/site/form-ui";
-
-type Status = { type: "idle" | "ok" | "error"; message?: string };
-type Errors = Partial<Record<"topic" | "body" | "email", string>>;
+import {
+  Field,
+  FormStatus,
+  Honeypot,
+  ReassuranceNote,
+  SubmitButton,
+  TextArea,
+  TextInput,
+} from "@/components/site/form-ui";
+import { useFormSubmit } from "@/components/site/use-form-submit";
+import {
+  isEmail,
+  MAX_EMAIL,
+  MAX_NAME,
+  MAX_SUGGESTION_BODY,
+  MAX_TOPIC,
+  MIN_SUGGESTION_BODY,
+  MIN_TOPIC,
+} from "@/components/site/form-validation";
 
 const initial = {
   topic: "",
@@ -15,169 +29,136 @@ const initial = {
   company: "", // honeypot
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type Values = typeof initial;
 
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null;
-  return (
-    <span id={id} className="mt-2 block text-sm text-red-400">
-      {message}
-    </span>
-  );
+/** Mirrors the limits in `handleSuggestions` (worker/routes/public.js). */
+function validate(values: Values) {
+  const errors: Record<string, string> = {};
+  const topic = values.topic.trim();
+  const body = values.body.trim();
+  const email = values.email.trim();
+
+  if (!topic) errors.topic = "Give your idea a short title.";
+  else if (topic.length < MIN_TOPIC) errors.topic = "A few more characters, please.";
+  else if (topic.length > MAX_TOPIC) errors.topic = `Please keep this under ${MAX_TOPIC} characters.`;
+
+  if (!body) errors.body = "Tell us the idea itself.";
+  else if (body.length < MIN_SUGGESTION_BODY) errors.body = "A little more, please — even one sentence helps.";
+  else if (body.length > MAX_SUGGESTION_BODY)
+    errors.body = `Please keep this under ${MAX_SUGGESTION_BODY} characters.`;
+
+  if (email && !isEmail(email)) errors.email = "That doesn't look like a valid email address.";
+
+  return errors;
 }
 
-export function SuggestionForm() {
-  const [form, setForm] = useState(initial);
-  const [errors, setErrors] = useState<Errors>({});
-  const [status, setStatus] = useState<Status>({ type: "idle" });
-  const [loading, setLoading] = useState(false);
-
-  const set = (key: keyof typeof initial) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }));
-    setErrors((prev) => {
-      if (!(key in prev)) return prev;
-      const next = { ...prev };
-      delete next[key as keyof Errors];
-      return next;
-    });
+const success = (data: Record<string, unknown>, values: Values) => {
+  void data;
+  const email = values.email.trim();
+  return {
+    message: "Idea received — thank you.",
+    detail: "Rough ideas are easier to shape than finished ones. This is the right time to send it.",
+    next: [
+      "A human reads every suggestion — not a queue, not a filter.",
+      email
+        ? `If it fits what we're building, we'll come back to you at ${email}.`
+        : "If you'd like an answer, add an email next time — this one came through anonymously.",
+    ],
   };
+};
 
-  function validate(): Errors {
-    const next: Errors = {};
-    if (!form.topic.trim()) next.topic = "Give your idea a short title.";
-    if (!form.body.trim()) next.body = "Tell us the idea itself.";
-    if (form.email.trim() && !EMAIL_RE.test(form.email.trim()))
-      next.email = "That doesn't look like a valid email address.";
-    return next;
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const found = validate();
-    if (Object.keys(found).length > 0) {
-      setErrors(found);
-      setStatus({ type: "error", message: "Please fix the highlighted fields and try again." });
-      return;
-    }
-    setErrors({});
-    setLoading(true);
-    setStatus({ type: "idle" });
-    try {
-      const res = await fetch("/api/suggestions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
-        setForm(initial);
-        setStatus({
-          type: "ok",
-          message: "Idea received. If it fits what we're building, we'll come back to you.",
-        });
-      } else if (res.status === 422) {
-        setStatus({ type: "error", message: "Some details were missing or invalid. Please check and try again." });
-      } else {
-        setStatus({ type: "error", message: "Something went wrong. Please try again in a moment." });
-      }
-    } catch {
-      setStatus({ type: "error", message: "Network error. Please try again." });
-    } finally {
-      setLoading(false);
-    }
-  }
+export function SuggestionForm() {
+  const { values, errors, status, pending, formRef, set, submit, reset } = useFormSubmit({
+    endpoint: "/api/suggestions",
+    initial,
+    validate,
+    success,
+  });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid gap-8 max-w-2xl">
-      <Reveal y={16}>
-        <div>
-          <Field label="Topic" hint="The idea in a few words." required>
-            <TextInput
-              id="suggestion-topic"
-              name="topic"
-              value={form.topic}
-              onChange={set("topic")}
-              required
-              aria-invalid={errors.topic ? true : undefined}
-              aria-describedby={errors.topic ? "suggestion-topic-error" : undefined}
-            />
-          </Field>
-          <FieldError id="suggestion-topic-error" message={errors.topic} />
-        </div>
-      </Reveal>
-
-      <Reveal y={16} delay={80}>
-        <div>
-          <Field
-            label="Your idea"
-            hint="A new activity, a partner, a way to run the community, something we're missing. Rough is fine — we're after the thought, not a proposal."
-            required
-          >
-            <TextArea
-              id="suggestion-body"
-              name="body"
-              value={form.body}
-              onChange={set("body")}
-              required
-              className="min-h-[160px]"
-              aria-invalid={errors.body ? true : undefined}
-              aria-describedby={errors.body ? "suggestion-body-error" : undefined}
-            />
-          </Field>
-          <FieldError id="suggestion-body-error" message={errors.body} />
-        </div>
-      </Reveal>
-
-      <Reveal y={16} delay={160}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <Field label="Name" hint="Optional.">
-            <TextInput id="suggestion-name" name="name" value={form.name} onChange={set("name")} autoComplete="name" />
-          </Field>
-          <div>
-            <Field label="Email" hint="Optional — only if you'd like a reply.">
+    <form ref={formRef} onSubmit={submit} noValidate className="grid max-w-2xl gap-8">
+      {status.type === "ok" ? (
+        <FormStatus status={status} onReset={reset} />
+      ) : (
+        <>
+          <Reveal y={16}>
+            <Field label="Topic" hint="The idea in a few words." required id="suggestion-topic" error={errors.topic}>
               <TextInput
-                id="suggestion-email"
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={set("email")}
-                autoComplete="email"
-                aria-invalid={errors.email ? true : undefined}
-                aria-describedby={errors.email ? "suggestion-email-error" : undefined}
+                name="topic"
+                value={values.topic}
+                onChange={set("topic")}
+                maxLength={MAX_TOPIC}
               />
             </Field>
-            <FieldError id="suggestion-email-error" message={errors.email} />
-          </div>
-        </div>
-      </Reveal>
+          </Reveal>
 
-      {/* Honeypot — hidden from people, catches bots. */}
-      <input
-        type="text"
-        name="company"
-        value={form.company}
-        onChange={set("company")}
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        className="hidden"
-      />
+          <Reveal y={16} delay={80}>
+            <Field
+              label="Your idea"
+              hint="A new activity, a partner, a way to run the community, something we're missing. Rough is fine — we're after the thought, not a proposal."
+              required
+              id="suggestion-body"
+              error={errors.body}
+            >
+              <TextArea
+                name="body"
+                value={values.body}
+                onChange={set("body")}
+                maxLength={MAX_SUGGESTION_BODY}
+                className="min-h-[160px]"
+              />
+            </Field>
+          </Reveal>
 
-      <Reveal y={16} delay={220}>
-        <div className="flex flex-wrap items-center gap-6 pt-2" aria-live="polite">
-          <SubmitButton loading={loading}>Send suggestion</SubmitButton>
-          <FormStatus status={status} />
-        </div>
-      </Reveal>
+          <Reveal y={16} delay={160}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field label="Name" hint="Optional." id="suggestion-name" error={errors.name}>
+                <TextInput
+                  name="name"
+                  value={values.name}
+                  onChange={set("name")}
+                  maxLength={MAX_NAME}
+                  autoComplete="name"
+                />
+              </Field>
+              <Field
+                label="Email"
+                hint="Optional — only if you'd like a reply."
+                id="suggestion-email"
+                error={errors.email}
+              >
+                <TextInput
+                  type="email"
+                  inputMode="email"
+                  name="email"
+                  value={values.email}
+                  onChange={set("email")}
+                  maxLength={MAX_EMAIL}
+                  autoComplete="email"
+                />
+              </Field>
+            </div>
+          </Reveal>
 
-      <Reveal y={16} delay={280}>
-        <p className="text-sm text-muted-foreground max-w-xl">
-          Suggestions are read by a human, not a queue. We'd rather hear a rough idea
-          early than a polished one once it's too late to shape it.
-        </p>
-      </Reveal>
+          <Honeypot name="company" value={values.company} onChange={set("company")} />
+
+          <Reveal y={16} delay={220}>
+            <div className="flex flex-wrap items-center gap-6 pt-2">
+              <SubmitButton loading={pending} loadingLabel="Sending suggestion…">
+                Send suggestion
+              </SubmitButton>
+              <FormStatus status={status} />
+            </div>
+          </Reveal>
+
+          <Reveal y={16} delay={280}>
+            <ReassuranceNote>
+              Suggestions are read by a human, not a queue. We&apos;d rather hear a rough idea
+              early than a polished one once it&apos;s too late to shape it.
+            </ReassuranceNote>
+          </Reveal>
+        </>
+      )}
     </form>
   );
 }

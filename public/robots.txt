@@ -1,0 +1,24 @@
+# robots.txt for Build For Good
+# Allow crawling of all public content pages
+# Disallow admin and API endpoints
+
+User-agent: *
+
+Allow:
+  /
+  /about
+  /membership
+  /manifesto
+  /problems
+  /projects
+  /activities
+  /values
+  /privacy
+  /terms
+  /accessibility
+
+Disallow:
+  /admin
+  /api/
+  /__debug__
+  /health

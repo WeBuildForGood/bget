@@ -2,29 +2,37 @@
 
 > Build For Good is a global, multidisciplinary community for turning meaningful problems into collective action — exceptional people across every field, building things that matter, together.
 
-Build For Good (BFG) brings together genuine, ambitious, curious and compassionate people who want to become more capable without becoming less human. It is deliberately multidisciplinary — engineering, medicine, science, design, law, policy, philosophy and the trades meet on real work rather than in name. It is open to problems and selective with people: anyone can submit a problem through the Problem Commons, while membership is earned through an application, a conversation and a 30-day trial. Membership is judged by conduct, not credentials.
+Build For Good (BFG) brings together genuine, ambitious, curious and compassionate people who want to become more capable without becoming less human. It is deliberately multidisciplinary — engineering, medicine, science, design, law, policy, philosophy and the skilled trades meet on real work rather than in name.
 
-- Founders & stewards: founded and stewarded by Nikhil Nagpure; Build For Good belongs to its members, not to any one founder's company.
-- Focus: turning meaningful problems into collective action through recurring rituals (Build Night, Deep Dive, Challenge, Think, Impact) and small project "Labs".
-- Standard: twelve dimensions of character and capability, with character as a gate rather than an average.
-- Motto: Build. Grow. Evolve. Together.
-- Contact: hello@buildforgood.org
+It is **open to problems and selective with people**: anyone, anywhere can submit a problem through the Problem Commons, while membership is earned through an application, a short conversation and a 30-day trial. Membership is judged by conduct, not credentials.
+
+- Motto: **Build. Grow. Evolve. Together.**
+- Founder & Steward: Nikhil Nagpure — Build For Good belongs to its members, not to any one founder's company.
+- How to bring a problem: submit one at <https://buildforgood.world/problems#submit>. No membership required. Every submission is framed, parked, or declined with a reason, and gets a human answer within 72 hours.
+- How to apply to join: apply at <https://buildforgood.world/membership#apply>. Application → a 15–20 minute voice conversation → a 30-day provisional trial. No CV and no years-of-experience field, by design.
+- The standard: twelve dimensions of character and capability, with **Character as a gate** rather than an average (a 1–2 on Character is declined regardless of other scores; otherwise Character ≥ 4 and the average of the rest ≥ 3).
+- Rituals: five recurring formats — Build Night, Deep Dive, Challenge, Think and Impact — plus quarterly rhythms (Showcase, Retreat/Meetup, Charter Review, Project Retros, New Member Cohort).
+- Contact: hello@buildforgood.world — a person reads every message, usually within 72 hours.
 
 ## Pages
 
-- [Home](https://buildforgood.nikhilnagpure203.workers.dev/): What Build For Good is, who it is for, and how to get involved.
-- [Manifesto](https://buildforgood.nikhilnagpure203.workers.dev/manifesto): Why Build For Good exists — capability without character is not enough, and the standard members hold each other to.
-- [Values](https://buildforgood.nikhilnagpure203.workers.dev/values): Each value written as the behaviour the community rewards and the behaviour it corrects.
-- [Membership](https://buildforgood.nikhilnagpure203.workers.dev/membership): The filter — twelve dimensions, a real conversation, and a 30-day trial. How to apply to join.
-- [Problem Commons](https://buildforgood.nikhilnagpure203.workers.dev/problems): Submit a problem from anywhere, no membership required; problems are framed, parked or declined with a reason and can become Labs.
-- [Projects](https://buildforgood.nikhilnagpure203.workers.dev/projects): A dynamic showcase of what the community is building across disciplines.
-- [Activities](https://buildforgood.nikhilnagpure203.workers.dev/activities): The recurring rituals — Build Night, Deep Dive, Challenge, Think and Impact — and the quarterly rhythm.
-- [Founders & Stewards](https://buildforgood.nikhilnagpure203.workers.dev/founders): The people who started and steward Build For Good.
-- [About](https://buildforgood.nikhilnagpure203.workers.dev/about): What the name means, the multidisciplinary design, and the North Star: become more capable without becoming less human.
-- [Contact](https://buildforgood.nikhilnagpure203.workers.dev/contact): Get in touch with the Build For Good team.
+- [Home](https://buildforgood.world/): What Build For Good is, who it is for, and the three doors into it — bring a problem, apply to join, or join a Lab.
+- [Manifesto](https://buildforgood.world/manifesto): Why Build For Good exists — capability without character is not enough — plus what we build, what we refuse to be, and the standard members hold each other to.
+- [Values](https://buildforgood.world/values): The eight values, each written twice as the behaviour the community rewards and the behaviour it corrects.
+- [Membership](https://buildforgood.world/membership): The filter — the twelve dimensions, a real conversation, and a 30-day trial. How to apply to join.
+- [Problem Commons](https://buildforgood.world/problems): Submit a problem from anywhere, no membership required; problems are framed, parked or declined with a reason, and can become Labs.
+- [Projects](https://buildforgood.world/projects): The member-submitted, human-reviewed showcase of what the community is building, at every stage from idea to scaled.
+- [Activities](https://buildforgood.world/activities): The five recurring rituals — Build Night, Deep Dive, Challenge, Think and Impact — and the quarterly rhythm.
+- [About](https://buildforgood.world/about): What the name means (Build, Grow, Evolve, Together), the multidisciplinary design, and the North Star: become more capable without becoming less human.
+- [Founders & Stewards](https://buildforgood.world/founders): The people who started and steward Build For Good, and what each role owns. No invented team, no borrowed titles.
+- [Contact](https://buildforgood.world/contact): Message the team, suggest an idea, or report a problem. A human usually replies within 72 hours.
+- [Privacy](https://buildforgood.world/privacy): Privacy policy for the Build For Good website.
+- [Terms](https://buildforgood.world/terms): Terms of use for the Build For Good website.
+- [Accessibility](https://buildforgood.world/accessibility): Accessibility statement for the Build For Good website.
 
 ## Optional
 
-- [GitHub](https://github.com/5h4d0wn1k/bget): Open-source code and issues for the Build For Good community platform.
-- [Sitemap](https://buildforgood.nikhilnagpure203.workers.dev/sitemap.xml): Machine-readable list of all public pages.
-- [Contact](mailto:hello@buildforgood.org): Email the team directly.
+- [GitHub](https://github.com/webuildforgood): Open-source code and issue tracker for the Build For Good community platform.
+- [Sitemap](https://buildforgood.world/sitemap.xml): Machine-readable list of all public pages.
+- [Security policy](https://buildforgood.world/.well-known/security.txt): How to report a security issue (RFC 9116).
+- [Contact](mailto:hello@buildforgood.world): Email the team directly.

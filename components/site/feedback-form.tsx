@@ -1,11 +1,24 @@
 "use client";
 
-import { useState } from "react";
 import { Reveal } from "@/components/motion/reveal";
-import { Field, TextInput, TextArea, Select, SubmitButton, FormStatus } from "@/components/site/form-ui";
-
-type Status = { type: "idle" | "ok" | "error"; message?: string };
-type Errors = Partial<Record<"body" | "email", string>>;
+import {
+  Field,
+  FormStatus,
+  Honeypot,
+  ReassuranceNote,
+  Select,
+  SubmitButton,
+  TextArea,
+  TextInput,
+} from "@/components/site/form-ui";
+import { useFormSubmit } from "@/components/site/use-form-submit";
+import {
+  isEmail,
+  MAX_EMAIL,
+  MAX_FEEDBACK_BODY,
+  MAX_PAGE,
+  MIN_FEEDBACK_BODY,
+} from "@/components/site/form-validation";
 
 const initial = {
   kind: "idea",
@@ -16,189 +29,166 @@ const initial = {
   company: "", // honeypot
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type Values = typeof initial;
 
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null;
-  return (
-    <span id={id} className="mt-2 block text-sm text-red-400">
-      {message}
-    </span>
-  );
+const KINDS = ["idea", "bug", "praise", "other"] as const;
+
+/** Mirrors the limits in `handleFeedback` (worker/routes/public.js). */
+function validate(values: Values) {
+  const errors: Record<string, string> = {};
+  const body = values.body.trim();
+  const email = values.email.trim();
+
+  if (!body) errors.body = "Please tell us what happened.";
+  else if (body.length < MIN_FEEDBACK_BODY) errors.body = "A little more, please — even one line helps.";
+  else if (body.length > MAX_FEEDBACK_BODY)
+    errors.body = `Please keep this under ${MAX_FEEDBACK_BODY} characters.`;
+
+  if (email && !isEmail(email)) errors.email = "That doesn't look like a valid email address.";
+
+  return errors;
 }
 
-export function FeedbackForm() {
-  const [form, setForm] = useState(initial);
-  const [errors, setErrors] = useState<Errors>({});
-  const [status, setStatus] = useState<Status>({ type: "idle" });
-  const [loading, setLoading] = useState(false);
-
-  const set = (key: keyof typeof initial) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }));
-    setErrors((prev) => {
-      if (!(key in prev)) return prev;
-      const next = { ...prev };
-      delete next[key as keyof Errors];
-      return next;
-    });
+/** The API expects a normalised `kind` and a numeric `rating` (or none). */
+function toPayload(values: Values): Record<string, unknown> {
+  const kind = (KINDS as readonly string[]).includes(values.kind) ? values.kind : "idea";
+  const payload: Record<string, unknown> = {
+    kind,
+    page: values.page,
+    body: values.body,
+    email: values.email,
+    company: values.company,
   };
+  if (values.rating) payload.rating = Number(values.rating);
+  return payload;
+}
 
-  function validate(): Errors {
-    const next: Errors = {};
-    if (!form.body.trim()) next.body = "Please tell us what happened.";
-    if (form.email.trim() && !EMAIL_RE.test(form.email.trim()))
-      next.email = "That doesn't look like a valid email address.";
-    return next;
-  }
+const success = (data: Record<string, unknown>, values: Values) => {
+  void data;
+  const email = values.email.trim();
+  return {
+    message: "Feedback received — thank you.",
+    detail: "Feedback like this is how the site actually gets better.",
+    next: [
+      "A human reads every report, including the blunt ones.",
+      email
+        ? `If there's anything to follow up, we'll write to ${email}.`
+        : "You left no email, so this came through anonymously — still useful.",
+      "We won't publish your feedback without asking.",
+    ],
+  };
+};
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const found = validate();
-    if (Object.keys(found).length > 0) {
-      setErrors(found);
-      setStatus({ type: "error", message: "Please fix the highlighted fields and try again." });
-      return;
-    }
-    setErrors({});
-    setLoading(true);
-    setStatus({ type: "idle" });
-    try {
-      const payload: Record<string, unknown> = {
-        kind: form.kind || "idea",
-        page: form.page,
-        body: form.body,
-        email: form.email,
-        company: form.company,
-      };
-      if (form.rating) payload.rating = Number(form.rating);
-
-      const res = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
-        setForm(initial);
-        setStatus({
-          type: "ok",
-          message: "Thank you. Feedback like this is how the site actually gets better.",
-        });
-      } else if (res.status === 422) {
-        setStatus({ type: "error", message: "Some details were missing or invalid. Please check and try again." });
-      } else {
-        setStatus({ type: "error", message: "Something went wrong. Please try again in a moment." });
-      }
-    } catch {
-      setStatus({ type: "error", message: "Network error. Please try again." });
-    } finally {
-      setLoading(false);
-    }
-  }
+export function FeedbackForm() {
+  const { values, errors, status, pending, formRef, set, submit, reset } = useFormSubmit({
+    endpoint: "/api/feedback",
+    initial,
+    validate,
+    toPayload,
+    success,
+  });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid gap-8 max-w-2xl">
-      <Reveal y={16}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <Field label="What kind of feedback is this?" required>
-            <Select id="feedback-kind" name="kind" value={form.kind} onChange={set("kind")}>
-              <option value="idea">An idea</option>
-              <option value="bug">Something is broken</option>
-              <option value="praise">Something worked well</option>
-              <option value="other">Something else</option>
-            </Select>
-          </Field>
-          <Field label="Page or area" hint="Optional — where did you see it?">
-            <TextInput
-              id="feedback-page"
-              name="page"
-              value={form.page}
-              onChange={set("page")}
-              placeholder="e.g. /membership, the footer"
-            />
-          </Field>
-        </div>
-      </Reveal>
+    <form ref={formRef} onSubmit={submit} noValidate className="grid max-w-2xl gap-8">
+      {status.type === "ok" ? (
+        <FormStatus status={status} onReset={reset} />
+      ) : (
+        <>
+          <Reveal y={16}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field label="What kind of feedback is this?" required id="feedback-kind" error={errors.kind}>
+                <Select name="kind" value={values.kind} onChange={set("kind")}>
+                  <option value="idea">An idea</option>
+                  <option value="bug">Something is broken</option>
+                  <option value="praise">Something worked well</option>
+                  <option value="other">Something else</option>
+                </Select>
+              </Field>
+              <Field label="Page or area" hint="Optional — where did you see it?" id="feedback-page" error={errors.page}>
+                <TextInput
+                  name="page"
+                  value={values.page}
+                  onChange={set("page")}
+                  maxLength={MAX_PAGE}
+                  placeholder="e.g. /membership, the footer"
+                />
+              </Field>
+            </div>
+          </Reveal>
 
-      <Reveal y={16} delay={80}>
-        <div>
-          <Field
-            label="Your feedback"
-            hint="What did you see, and what did you expect instead? Plain and specific beats polished."
-            required
-          >
-            <TextArea
-              id="feedback-body"
-              name="body"
-              value={form.body}
-              onChange={set("body")}
+          <Reveal y={16} delay={80}>
+            <Field
+              label="Your feedback"
+              hint="What did you see, and what did you expect instead? Plain and specific beats polished."
               required
-              className="min-h-[160px]"
-              aria-invalid={errors.body ? true : undefined}
-              aria-describedby={errors.body ? "feedback-body-error" : undefined}
-            />
-          </Field>
-          <FieldError id="feedback-body-error" message={errors.body} />
-        </div>
-      </Reveal>
-
-      <Reveal y={16} delay={160}>
-        <div className="grid gap-8 sm:grid-cols-2">
-          <div>
-            <Field label="Email" hint="Optional — only if you'd like a reply.">
-              <TextInput
-                id="feedback-email"
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={set("email")}
-                autoComplete="email"
-                aria-invalid={errors.email ? true : undefined}
-                aria-describedby={errors.email ? "feedback-email-error" : undefined}
+              id="feedback-body"
+              error={errors.body}
+            >
+              <TextArea
+                name="body"
+                value={values.body}
+                onChange={set("body")}
+                maxLength={MAX_FEEDBACK_BODY}
+                className="min-h-[160px]"
               />
             </Field>
-            <FieldError id="feedback-email-error" message={errors.email} />
-          </div>
-          <Field label="How is it going overall?" hint="Optional — 1 is rough, 5 is great.">
-            <Select id="feedback-rating" name="rating" value={form.rating} onChange={set("rating")}>
-              <option value="">No rating</option>
-              <option value="1">1 — rough</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5 — great</option>
-            </Select>
-          </Field>
-        </div>
-      </Reveal>
+          </Reveal>
 
-      {/* Honeypot — hidden from people, catches bots. */}
-      <input
-        type="text"
-        name="company"
-        value={form.company}
-        onChange={set("company")}
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        className="hidden"
-      />
+          <Reveal y={16} delay={160}>
+            <div className="grid gap-8 sm:grid-cols-2">
+              <Field
+                label="Email"
+                hint="Optional — only if you'd like a reply."
+                id="feedback-email"
+                error={errors.email}
+              >
+                <TextInput
+                  type="email"
+                  inputMode="email"
+                  name="email"
+                  value={values.email}
+                  onChange={set("email")}
+                  maxLength={MAX_EMAIL}
+                  autoComplete="email"
+                />
+              </Field>
+              <Field
+                label="How is it going overall?"
+                hint="Optional — 1 is rough, 5 is great."
+                id="feedback-rating"
+                error={errors.rating}
+              >
+                <Select name="rating" value={values.rating} onChange={set("rating")}>
+                  <option value="">No rating</option>
+                  <option value="1">1 — rough</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5 — great</option>
+                </Select>
+              </Field>
+            </div>
+          </Reveal>
 
-      <Reveal y={16} delay={220}>
-        <div className="flex flex-wrap items-center gap-6 pt-2" aria-live="polite">
-          <SubmitButton loading={loading}>Send feedback</SubmitButton>
-          <FormStatus status={status} />
-        </div>
-      </Reveal>
+          <Honeypot name="company" value={values.company} onChange={set("company")} />
 
-      <Reveal y={16} delay={280}>
-        <p className="text-sm text-muted-foreground max-w-xl">
-          Bug reports and sharp criticism are welcome — they're how the site earns the
-          trust of the people using it. We won't publish your feedback without asking.
-        </p>
-      </Reveal>
+          <Reveal y={16} delay={220}>
+            <div className="flex flex-wrap items-center gap-6 pt-2">
+              <SubmitButton loading={pending} loadingLabel="Sending feedback…">
+                Send feedback
+              </SubmitButton>
+              <FormStatus status={status} />
+            </div>
+          </Reveal>
+
+          <Reveal y={16} delay={280}>
+            <ReassuranceNote>
+              Bug reports and sharp criticism are welcome — they&apos;re how the site earns the
+              trust of the people using it. We won&apos;t publish your feedback without asking.
+            </ReassuranceNote>
+          </Reveal>
+        </>
+      )}
     </form>
   );
 }

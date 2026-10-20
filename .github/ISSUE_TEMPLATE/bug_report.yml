@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for taking the time to report a bug. Please search existing
         issues first, and **do not use this form for security issues** —
-        follow [SECURITY.md](https://github.com/5h4d0wn1k/bget/blob/main/SECURITY.md)
+        follow [SECURITY.md](https://github.com/webuildforgood/blob/main/SECURITY.md)
         instead.
   - type: dropdown
     id: page

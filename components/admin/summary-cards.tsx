@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   COLLECTIONS,
   labelize,
+  statusCountsFor,
   statusTone,
   type CollectionKey,
   type Summary,
@@ -21,17 +22,18 @@ export function SummaryCards({
   onSelect,
 }: {
   summary: Summary | null;
-  error: boolean;
+  error: string | null;
   active: CollectionKey;
   onRetry: () => void;
   onSelect: (key: CollectionKey) => void;
 }) {
   if (!summary && error) {
     return (
-      <Card className="flex-row items-center justify-between gap-4 px-5 py-4">
-        <p className="text-sm text-muted-foreground">
-          Couldn&apos;t load the summary counts.
-        </p>
+      <Card
+        role="alert"
+        className="flex-row items-center justify-between gap-4 px-5 py-4"
+      >
+        <p className="text-sm text-muted-foreground">{error}</p>
         <Button size="sm" variant="outline" onClick={onRetry}>
           Retry
         </Button>
@@ -41,10 +43,23 @@ export function SummaryCards({
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      {summary && error ? (
+        <div
+          role="status"
+          className="col-span-full flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300/30 bg-amber-300/[0.06] px-4 py-2.5"
+        >
+          <p className="text-xs text-muted-foreground">
+            {error} Showing the last known counts.
+          </p>
+          <Button size="sm" variant="outline" onClick={onRetry}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
       {COLLECTIONS.map((config) => {
         const entry = summary?.[config.key];
         const isActive = active === config.key;
-        const byStatus = entry?.byStatus ?? entry?.status ?? (entry as any)?.statusCounts ?? (entry as any)?.counts ?? {};
+        const byStatus = statusCountsFor(entry);
         const statusEntries = Object.entries(byStatus).filter(([, count]) => typeof count === "number" && count > 0);
 
         return (

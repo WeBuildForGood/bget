@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 
+import { usePublicMetrics, formatMetric } from "./use-public-metrics";
+
 const regions = [
   { name: "The Americas", note: "Builders · researchers · founders", status: "growing" },
   { name: "Europe", note: "Engineers · scientists · artists", status: "growing" },
@@ -10,6 +12,7 @@ const regions = [
 ];
 
 export function InfrastructureSection() {
+  const { metrics } = usePublicMetrics();
   const [isVisible, setIsVisible] = useState(false);
   const [activeRegion, setActiveRegion] = useState(0);
   const sectionRef = useRef<HTMLElement>(null);
@@ -34,12 +37,12 @@ export function InfrastructureSection() {
   }, []);
 
   return (
-    <section id="infra" ref={sectionRef} className="relative py-32 lg:py-40 overflow-hidden">
+    <section id="infra" ref={sectionRef} className="relative py-20 lg:py-40 overflow-hidden">
         {/* Background accent — retiré, remplacé par l'image sphère */}
       
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header */}
-        <div className="mb-20">
+        <div className="mb-12 lg:mb-20">
           <span className={`inline-flex items-center gap-4 text-sm font-mono text-muted-foreground mb-8 transition-all duration-700 ${
             isVisible ? "opacity-100" : "opacity-0"
           }`}>
@@ -49,19 +52,24 @@ export function InfrastructureSection() {
           
           <div className="grid lg:grid-cols-[auto_1fr] gap-8 lg:gap-16 items-stretch">
             {/* Image globe — colonne gauche, pleine hauteur */}
-            <div className={`w-48 lg:w-72 xl:w-80 shrink-0 transition-all duration-1000 ${
+            <div className={`w-40 sm:w-48 lg:w-72 xl:w-80 shrink-0 transition-all duration-1000 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
               <img
-                src="/images/globe.png"
-                alt="Global network sphere"
+                src="/images/globe.webp"
+                alt="Interactive globe showing Build For Good's global network across Americas, Europe, Asia-Pacific, and Africa-Middle East"
+                aria-hidden="false"
+                width={1000}
+                height={1000}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-contain object-center"
               />
             </div>
 
             {/* Titre + description empilés */}
             <div className="flex flex-col justify-center">
-              <h2 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
+              <h2 className={`text-4xl sm:text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
               }`}>
                 Open to
@@ -82,7 +90,7 @@ export function InfrastructureSection() {
         {/* Main content grid */}
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Large stat card */}
-          <div className={`lg:col-span-2 relative p-8 lg:p-12 border border-foreground/10 bg-foreground/[0.02] overflow-hidden transition-all duration-700 ${
+          <div className={`lg:col-span-2 relative p-6 sm:p-8 lg:p-12 border border-foreground/10 bg-foreground/[0.02] overflow-hidden transition-all duration-700 ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
           }`}>
             {/* Animated dots background with connecting lines */}
@@ -144,8 +152,8 @@ export function InfrastructureSection() {
             
             <div className="relative z-10">
               <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-8xl lg:text-[10rem] font-display leading-none">∞</span>
-                <span className="text-2xl text-muted-foreground">disciplines</span>
+                <span className="text-6xl sm:text-8xl lg:text-[10rem] font-display leading-none">{formatMetric(metrics?.problems_public_open)}</span>
+                <span className="text-2xl text-muted-foreground">problems to solve</span>
               </div>
               <p className="text-muted-foreground max-w-md">
                 Not just software. Science, medicine, engineering, art, law, agriculture — every field that can help a problem get solved, in one room.
@@ -155,14 +163,14 @@ export function InfrastructureSection() {
 
           {/* Stacked stat cards */}
           <div className="flex flex-col gap-6">
-            <div className={`p-8 border border-foreground/10 bg-foreground/[0.02] transition-all duration-700 delay-100 ${
+            <div className={`p-6 sm:p-8 border border-foreground/10 bg-foreground/[0.02] transition-all duration-700 delay-100 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
-              <span className="text-5xl lg:text-6xl font-display">0</span>
-              <span className="block text-sm text-muted-foreground mt-2">Barriers to bringing a problem</span>
+              <span className="text-5xl lg:text-6xl font-display">{formatMetric(metrics?.problems_total)}</span>
+              <span className="block text-sm text-muted-foreground mt-2">Problems received, from every discipline</span>
             </div>
             
-            <div className={`p-8 border border-foreground/10 bg-foreground/[0.02] transition-all duration-700 delay-200 ${
+            <div className={`p-6 sm:p-8 border border-foreground/10 bg-foreground/[0.02] transition-all duration-700 delay-200 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
               <span className="text-5xl lg:text-6xl font-display">&lt;72h</span>
@@ -172,13 +180,13 @@ export function InfrastructureSection() {
         </div>
 
         {/* Region list */}
-        <div className={`mt-12 grid grid-cols-2 lg:grid-cols-4 gap-4 transition-all duration-1000 delay-300 ${
+        <div className={`mt-10 lg:mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 transition-all duration-1000 delay-300 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
           {regions.map((region, index) => (
             <div
               key={region.name}
-              className={`p-6 border transition-all duration-300 cursor-default ${
+              className={`p-4 sm:p-6 border transition-all duration-300 cursor-default ${
                 activeRegion === index 
                   ? "border-foreground/30 bg-foreground/[0.04]" 
                   : "border-foreground/10"

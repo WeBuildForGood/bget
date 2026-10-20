@@ -8,7 +8,7 @@
  *
  * Layout:
  *   /api/admin/*   -> admin JSON API   (Cloudflare Access protected)
- *   /api/*         -> public JSON API
+ *   /api/*         -> public JSON API  (health, stats, problems, projects, forms)
  *   /projects/*    -> static page, else D1-backed SSR page
  *   everything else-> static assets
  */
@@ -66,13 +66,26 @@ export async function handleRequest(request, env, ctx) {
  * @returns {string}
  */
 function allowForApiPath(pathname) {
-  if (pathname.startsWith("/api/admin/")) return "GET, PATCH, DELETE, OPTIONS";
-  if (pathname === "/api/projects") return "GET, POST, OPTIONS";
-  if (pathname.startsWith("/api/projects/")) return "GET, HEAD, OPTIONS";
-  if (pathname === "/api/health") return "GET, HEAD, OPTIONS";
-  if (pathname === "/api/apply" || pathname === "/api/problems") {
-    return "POST, OPTIONS";
+  if (pathname.startsWith("/api/admin/")) return "GET, PATCH, DELETE, POST, OPTIONS";
+  if (pathname === "/api/projects" || pathname === "/api/problems") {
+    return "GET, POST, OPTIONS";
   }
+  if (
+    pathname.startsWith("/api/projects/") ||
+    pathname.startsWith("/api/problems/")
+  ) {
+    return "GET, HEAD, OPTIONS";
+  }
+  if (
+    pathname === "/api/health" ||
+    pathname === "/api/stats" ||
+    pathname === "/api/metrics"
+  ) {
+    return "GET, HEAD, OPTIONS";
+  }
+  if (pathname === "/api/apply") return "POST, OPTIONS";
+  if (pathname === "/api/subscribe" || pathname === "/api/unsubscribe")
+    return "POST, OPTIONS";
   if (
     pathname === "/api/contact" ||
     pathname === "/api/suggestions" ||

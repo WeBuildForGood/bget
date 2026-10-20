@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { FlaskConical, Stethoscope, Cog, Code2, ShieldCheck, BrainCircuit, Briefcase, Compass, BookOpen, Palette, Leaf, GraduationCap } from "lucide-react";
 
+import { usePublicMetrics, formatMetric } from "./use-public-metrics";
+
 const logos: Record<string, React.ReactNode> = {
   Science: <FlaskConical className="w-6 h-6" />,
   Medicine: <Stethoscope className="w-6 h-6" />,
@@ -33,6 +35,7 @@ const integrations = [
 ];
 
 export function IntegrationsSection() {
+  const { metrics } = usePublicMetrics();
   const [isVisible, setIsVisible] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -54,7 +57,7 @@ export function IntegrationsSection() {
     <section id="integrations" ref={sectionRef} className="relative overflow-hidden">
 
       {/* Header — centré verticalement sur l'image */}
-      <div className="relative z-10 pt-32 lg:pt-40 text-center">
+      <div className="relative z-10 pt-24 lg:pt-40 text-center">
         <span className={`inline-flex items-center gap-4 text-sm font-mono text-muted-foreground mb-8 transition-all duration-700 justify-center ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
@@ -63,7 +66,7 @@ export function IntegrationsSection() {
           <span className="w-12 h-px bg-foreground/20" />
         </span>
 
-        <h2 className={`text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
+        <h2 className={`text-4xl sm:text-6xl md:text-7xl lg:text-[128px] font-display tracking-tight leading-[0.9] transition-all duration-1000 ${
           isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         }`}>
           Not just
@@ -82,12 +85,19 @@ export function IntegrationsSection() {
       <div className={`relative left-1/2 -translate-x-1/2 w-screen -mt-16 transition-all duration-1000 delay-200 ${
         isVisible ? "opacity-100" : "opacity-0"
       }`}>
-        <img
-          src="/images/connection.png"
-          alt="Connected network of people and disciplines"
-          aria-hidden="true"
-          className="w-full h-auto object-cover"
-        />
+        <picture className="contents">
+          <source srcSet="/images/connection.avif" type="image/avif" />
+          <img
+            src="/images/connection.webp"
+            alt="Abstract visualization of connections between science, medicine, engineering, art, and technology disciplines"
+            aria-hidden="false"
+            width={1920}
+            height={923}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-auto object-cover"
+          />
+        </picture>
       </div>
 
       {/* Integration grid — remonte sur l'image avec spacing mobile approprié */}
@@ -96,7 +106,7 @@ export function IntegrationsSection() {
           {integrations.map((integration, index) => (
             <div
               key={integration.name}
-              className={`group relative overflow-hidden p-6 lg:p-8 border transition-all duration-500 cursor-default ${
+              className={`group relative overflow-hidden p-4 sm:p-6 lg:p-8 border transition-all duration-500 cursor-default ${
                 hoveredIndex === index
                   ? "border-foreground bg-foreground/[0.04] scale-[1.02]"
                   : "border-foreground/10 hover:border-foreground/30"
@@ -129,7 +139,7 @@ export function IntegrationsSection() {
                 />
               )}
               {/* Category tag */}
-              <span className={`absolute top-3 right-3 text-[10px] font-mono px-2 py-0.5 transition-colors ${
+              <span className={`absolute top-3 right-3 text-xs font-mono px-2 py-0.5 transition-colors ${
                 hoveredIndex === index
                   ? "bg-foreground text-background"
                   : "bg-foreground/10 text-muted-foreground"
@@ -157,14 +167,14 @@ export function IntegrationsSection() {
         </div>
 
         {/* Bottom stats row */}
-        <div className={`flex flex-wrap items-center justify-between gap-8 pt-12 border-t border-foreground/10 transition-all duration-1000 delay-500 pb-32 lg:pb-40 ${
+        <div className={`flex flex-wrap items-center justify-between gap-6 pt-8 border-t border-foreground/10 transition-all duration-1000 delay-500 pb-20 lg:pb-40 ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}>
-          <div className="flex flex-wrap gap-12">
+          <div className="flex flex-wrap gap-6 sm:gap-12">
             {[
-              { value: "Every", label: "discipline" },
-              { value: "1", label: "shared standard" },
-              { value: "Any", label: "sector, size, or scale" },
+              { value: formatMetric(metrics?.problems_public_open), label: "problems to solve" },
+              { value: formatMetric(metrics?.projects_approved), label: "projects" },
+              { value: formatMetric(metrics?.problems_total), label: "problems received" },
             ].map((stat) => (
               <div key={stat.label} className="flex items-baseline gap-3">
                 <span className="text-3xl font-display">{stat.value}</span>
@@ -173,7 +183,7 @@ export function IntegrationsSection() {
             ))}
           </div>
 
-          <a href="/membership" className="group inline-flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-foreground transition-colors">
+          <a href="/membership" className="group inline-flex items-center gap-2 text-sm font-mono text-muted-foreground hover:text-foreground transition-colors min-h-11">
             See who we're looking for
             <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
           </a>

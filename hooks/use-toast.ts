@@ -179,7 +179,9 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+    // `setState` is stable, so subscribe once instead of re-subscribing on
+    // every state change.
+  }, [])
 
   return {
     ...state,

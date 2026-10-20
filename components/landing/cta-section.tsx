@@ -31,7 +31,7 @@ export function CtaSection() {
   };
 
   return (
-    <section ref={sectionRef} className="relative py-24 lg:py-32 overflow-hidden">
+    <section ref={sectionRef} className="relative py-16 lg:py-32 overflow-hidden">
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         <div
           className={`relative border border-foreground transition-all duration-1000 ${
@@ -47,11 +47,11 @@ export function CtaSection() {
             }}
           />
           
-          <div className="relative z-10 px-8 lg:px-16 py-16 lg:py-24">
-            <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+          <div className="relative z-10 px-6 sm:px-8 lg:px-16 py-12 sm:py-16 lg:py-24">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
               {/* Left content */}
               <div className="flex-1">
-                <h2 className="text-6xl md:text-7xl lg:text-[72px] font-display tracking-tight mb-8 leading-[0.95]">
+                <h2 className="text-4xl sm:text-6xl md:text-7xl lg:text-[72px] font-display tracking-tight mb-8 leading-[0.95]">
                   Ready to build
                   <br />
                   something together?
@@ -61,11 +61,11 @@ export function CtaSection() {
                   Bring a problem, a skill, or simply curiosity. If you are genuine, kind, and want to become more capable without becoming less human — we would love to meet you.
                 </p>
 
-                <div className="flex flex-col sm:flex-row items-start gap-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-4 w-full sm:w-auto">
                   <Button
                     asChild
                     size="lg"
-                    className="bg-foreground hover:bg-foreground/90 text-background px-8 h-14 text-base rounded-full group"
+                    className="w-full sm:w-auto justify-center bg-foreground hover:bg-foreground/90 text-background px-5 sm:px-8 h-14 text-sm sm:text-base rounded-full group"
                   >
                     <Link href="/membership">
                       Apply to join Build For Good
@@ -76,7 +76,7 @@ export function CtaSection() {
                     asChild
                     size="lg"
                     variant="outline"
-                    className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5"
+                    className="w-full sm:w-auto justify-center h-14 px-5 sm:px-8 text-sm sm:text-base rounded-full border-foreground/20 hover:bg-foreground/5"
                   >
                     <Link href="/manifesto">Read the manifesto</Link>
                   </Button>
@@ -89,11 +89,19 @@ export function CtaSection() {
 
               {/* Right image */}
               <div className="hidden lg:flex items-end justify-center w-[600px] h-[650px] -mr-16">
-                <img
-                  src="/images/bridge.png"
-                  alt="Two trees connected by glowing arcs"
-                  className="w-full h-full object-contain object-bottom"
-                />
+                <picture className="contents">
+                  <source srcSet="/images/bridge.avif" type="image/avif" />
+                  <img
+                    src="/images/bridge.webp"
+                    alt=""
+                    aria-hidden="true"
+                    width={1400}
+                    height={933}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-contain object-bottom"
+                  />
+                </picture>
               </div>
             </div>
           </div>

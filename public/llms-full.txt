@@ -1,0 +1,294 @@
+# Build For Good — full reference
+
+> Build For Good is a global, multidisciplinary community for turning meaningful problems into collective action — exceptional people across every field, building things that matter, together.
+
+This file is a plain-text consolidation of the public Build For Good website for
+LLM ingestion. Canonical origin: https://buildforgood.world
+
+Motto: Build. Grow. Evolve. Together.
+Founder & Steward: Nikhil Nagpure.
+Contact: hello@buildforgood.world
+GitHub: https://github.com/webuildforgood
+
+---
+
+## What Build For Good is
+
+Build For Good (BFG) is a global, multidisciplinary community. It brings
+together genuine, ambitious, curious and compassionate people who want to become
+more capable without becoming less human, and turns meaningful problems into
+collective action.
+
+It is deliberately multidisciplinary. Engineering, medicine, science, design,
+law, policy, philosophy and the skilled trades meet on real work — not only in
+name. The design principle is simple: a mathematician, a doctor, a civil
+engineer and a security researcher see a problem in ways no single discipline
+can, so they are put in the same room and asked to build.
+
+It is open to problems and selective with people. Anyone, anywhere can submit a
+problem through the Problem Commons. Membership is earned through an
+application, a conversation and a 30-day trial, and is judged by conduct, not
+credentials.
+
+North Star: become more capable without becoming less human.
+This is not a networking farm, not a self-promotion channel, and not any one
+founder's startup — Build For Good belongs to its members.
+
+## What the name means
+
+- Build — build things that matter; move from idea → action → experiment →
+  real-world impact.
+- Grow — grow intellectually, technically, emotionally and ethically.
+- Evolve — question your assumptions, accept criticism, change your mind when
+  the evidence demands it.
+- Together — collective intelligence accomplishes what isolated individuals
+  cannot. Different disciplines, one problem.
+
+## Disciplines
+
+Mathematics · Physics · Medicine & health · Engineering · Software & AI ·
+Cybersecurity · Business & entrepreneurship · Strategy & policy · Philosophy ·
+Design & art · Law · Environment · Education · Agriculture · Skilled trades —
+and fields that do not exist yet.
+
+## Values (how members behave, not what they claim)
+
+Each value is written twice: the behaviour rewarded, and the behaviour corrected.
+
+1. Character before capability — reward people who keep promises, admit
+   mistakes early, and do the right thing when it costs them; correct brilliance
+   used as a licence and status used as a shield.
+2. Intellectual humility — reward "I don't know", "I was wrong", "can you
+   explain that to me?"; correct performing expertise, dismissing questions,
+   one-upmanship, citing credentials instead of reasoning.
+3. Constructive disagreement — reward attacking the idea, steelmanning the
+   other side, changing your mind publicly; correct personal attacks, sarcasm as
+   a weapon, pile-ons, arguing to win.
+4. Generosity as a default — reward answering questions, reviewing work, making
+   introductions, sharing resources, crediting others; correct hoarding
+   knowledge, gatekeeping, showing up only to ask for something.
+5. Follow-through — reward shipping, small consistent contributions, closing
+   the loop, saying no instead of ghosting; correct enthusiasm followed by
+   disappearance.
+6. Respect for people and planet — reward kindness to newcomers, patience with
+   different skill levels, environmental and social awareness; correct cruelty
+   disguised as directness, exploitation, building harm and calling it progress.
+7. Ownership without empire-building — reward "I'll take care of that" and
+   actually doing it; correct seeking authority without service, treating
+   members as an audience or a workforce.
+8. Privacy and trust — reward keeping confidences and handling personal data
+   carefully; correct sharing member details or recruiting people out without
+   consent.
+
+Culture test before sending anything: (1) would I stand by this if it were
+screenshotted and shown to everyone here? (2) does this make Build For Good more
+or less the place exceptional people choose to stay? If either answer is no,
+don't send it.
+
+## Membership — the twelve dimensions
+
+Membership is open to meaningful problems and selective with people. We choose
+small and excellent over fast and ordinary.
+
+The twelve dimensions we judge each other by:
+
+- Character (a gate, not an average) — keep promises, even when it costs
+- Kindness — make people feel respected and safe
+- Curiosity — ask better questions than you answer
+- Ambition — set real goals, show consistent effort
+- Competence — show what you've built or done
+- Humility — "I don't know", accepts correction
+- Critical thinking — question your own assumptions
+- Collaboration — make others better
+- Responsibility — think through consequences before acting
+- Discipline — follow through, repeatedly
+- Growth mindset — use criticism as fuel
+- Positive intent — want capability to create, not to dominate
+
+Scoring: each dimension is scored 1–5. Anyone scoring 1–2 on Character is
+declined regardless of every other score. Otherwise, Character must be ≥ 4 and
+the average of the remaining dimensions must be ≥ 3.
+
+The process:
+
+1. Apply — under ten minutes. No CV and no years-of-experience field, by
+   design. We ask what you have built and one thing you are struggling with.
+2. Talk — a 15–20 minute voice conversation. Not an interrogation; you are
+   deciding whether we are worth your time too.
+3. Trial — membership is provisional for 30 days. Introduce yourself, help
+   someone, show up once; then it is confirmed.
+
+Three doors, so everyone finds theirs in one screen:
+
+- Bring a problem — open to anyone, anywhere, because problems need solving,
+  not permission.
+- Join Build For Good — application → conversation → 30-day trial.
+- Join a Lab — contributing to a problem never requires membership; some work
+  needs domain expertise, some needs translation.
+
+Full membership page: https://buildforgood.world/membership
+
+## Problem Commons
+
+The world has no shortage of problems — only a shortage of people willing and
+capable of solving them, across disciplines, borders and status. Anyone,
+anywhere can submit a problem. Submit: https://buildforgood.world/problems#submit
+
+The loop: Submit → Understand → Assemble → Lab → Validate → Deploy → Impact →
+Share. Is it real and who is affected? Which disciplines does it actually need?
+A small Lab team researches, designs, prototypes and tests in the wild, then
+asks whether it works outside a document, whether it can be implemented where
+the affected people are, who benefited, and what was learned. No problem in, no
+loop.
+
+The capacity rule and promise:
+- Every submission gets a human answer within 72 hours.
+- Every submission is framed, parked, or declined with a reason.
+- If submissions outpace reviews, intake is closed honestly rather than left
+  unanswered. An unanswered submission is a broken promise; a closed door is not.
+- Build For Good does not promise to solve your problem; it promises to help
+  determine whether, how, and with whom it can be meaningfully worked on.
+
+How problems are chosen — no upvotes, ever (voting picks popularity, not
+importance). Each submission is weighed on: Severity; People affected (how
+many, and how underserved); Urgency; Neglectedness (is anyone credible already
+on it?); Feasibility; Expertise available; Testability; Scalability; and
+Safety & ethics.
+
+Lifecycle stages shown for every problem: Submitted → Reviewed → Framed →
+Research → Lab forms → Prototype → Pilot → Deployment → Impact → Learn.
+Paused and archived are honest endings. Stage 10 — what worked, what failed,
+what the next team should know — is mandatory.
+
+Full Problem Commons page: https://buildforgood.world/problems
+
+## Activities — the recurring rituals
+
+A manifesto does not make people stay; something happening does. Five recurring
+formats, run as rituals rather than one-offs.
+
+- Build Night — Weekly · 90 minutes · voice + screen share. 10 min kickoff →
+  60 min building together → 20 min show-and-tell. Anything counts: automation,
+  a website, a CLI tool, a cyber lab, a hardware prototype, an NGO site. No
+  spectators — everyone builds something.
+- Deep Dive — Weekly or fortnightly · 20–30 minutes. One member presents
+  something they are obsessed with: 25 min talk → 15 min genuine Q&A, recorded.
+  Anyone can speak, including week-one members; the host role rotates.
+- Challenge — Fortnightly · one week · teams of 2–4. A small collaborative
+  problem with a deadline, announced Monday and demoed Sunday. Judged on
+  usefulness, effort and collaboration — not polish.
+- Think — Weekly · async-first. A question worth arguing about well runs all
+  week so time zones do not kill it. One person steelman-moderates and posts
+  the best opposing arguments before it closes. The goal is to think better
+  together, not to win.
+- Impact — Monthly · physical or measurable. Tree planting, local cleanups,
+  free teaching, software for an NGO, open-source maintenance — measured and
+  reported ("we planted 40 trees with 9 people" beats "we did good").
+
+Quarterly and milestone rhythms: Showcase (quarterly — every active project
+demos); Retreat / Meetup (2× per year); Charter Review (quarterly — members
+propose changes to the rules); Project Retros (end of each project); New Member
+Cohort (monthly — admit and onboard in small batches).
+
+Rituals are launched gradually — Build Night first, then Think, then Deep Dive,
+then Challenge, then Impact — so participation stays real. If only one could be
+kept alive, keep Build Night.
+
+Full activities page: https://buildforgood.world/activities
+
+## Projects
+
+The public record of what members are actually making — tools, research,
+prototypes and small services built for real people, at every stage from idea to
+scaled. Nothing is aspirational marketing: projects are submitted by members and
+reviewed by a human before they are published, and each shows its stage, the
+people behind it, where it is rooted, and the links to explore it.
+
+How it works: Submit → Review → Published. A member sends a project (title, a
+one-line summary, what it is, its stage, and links); a person reviews whether it
+is real, whether the description is honest, and whether it is the member's work
+to show; approved projects appear in the public showcase.
+
+Projects are not ranked and vanity metrics are not chased. The point is to make
+the work visible, connect the people who can help, and let others learn from
+what worked and what did not. Projects usually begin with a problem worth
+solving.
+
+Full projects page: https://buildforgood.world/projects
+
+## Founders & roles
+
+One person started Build For Good; it is not meant to stay one person's work.
+Titles describe accountability, not status. Where a role has no holder, that is
+stated plainly — an honest gap beats a borrowed name.
+
+- Founder — Nikhil Nagpure (filled). Owns the culture, the long view, and the
+  promise that every submission gets a human answer. Accountable for staying
+  small enough to stay honest and for setting no direction alone.
+- Stewards (open) — moderation, onboarding, hosting and mentoring. Earned,
+  never appointed; if a Steward stops showing up, the title goes with the
+  behaviour.
+- Guides (open) — field knowledge: clinicians, engineers, researchers, designers
+  and tradespeople who review real work in their discipline, kindly.
+- Members & contributors (open to join) — the actual building: research,
+  prototypes, translation, field work, documentation, follow-through.
+  Contribution is bigger than code.
+
+There is no CTO, no advisory board and no stock team page. Every person shown
+exists and does the thing.
+
+Full founders page: https://buildforgood.world/founders
+
+## About
+
+A global network turning problems into action, founded by Nikhil Nagpure and
+built by everyone who contributes. The image the community presents is honest:
+no invented team, no borrowed titles — an honest "nobody yet" beats a grid of
+stock smiles.
+
+Full about page: https://buildforgood.world/about
+
+## How to get involved
+
+- Bring a problem (anyone, anywhere, no membership needed):
+  https://buildforgood.world/problems#submit
+- Apply to join Build For Good:
+  https://buildforgood.world/membership#apply
+- Join a Lab around a problem you care about:
+  https://buildforgood.world/problems
+- Read the manifesto: https://buildforgood.world/manifesto
+- Read the values: https://buildforgood.world/values
+- See what members are building: https://buildforgood.world/projects
+
+## Contact
+
+- Email: hello@buildforgood.world (a person reads it, usually within 72 hours;
+  we do not share what you send or add you to a list you did not ask for)
+- Contact page (message, suggest an idea, or report a problem):
+  https://buildforgood.world/contact
+- GitHub (code, tools and issues in the open):
+  https://github.com/webuildforgood
+
+## Page index
+
+- Home — https://buildforgood.world/
+- Manifesto — https://buildforgood.world/manifesto
+- Values — https://buildforgood.world/values
+- Membership — https://buildforgood.world/membership
+- Problem Commons — https://buildforgood.world/problems
+- Projects — https://buildforgood.world/projects
+- Activities — https://buildforgood.world/activities
+- About — https://buildforgood.world/about
+- Founders & Stewards — https://buildforgood.world/founders
+- Contact — https://buildforgood.world/contact
+- Privacy — https://buildforgood.world/privacy
+- Terms — https://buildforgood.world/terms
+- Accessibility — https://buildforgood.world/accessibility
+
+## Machine-readable
+
+- Sitemap — https://buildforgood.world/sitemap.xml
+- robots.txt — https://buildforgood.world/robots.txt
+- Web app manifest — https://buildforgood.world/manifest.webmanifest
+- Security policy (RFC 9116) — https://buildforgood.world/.well-known/security.txt
+- Concise LLM summary — https://buildforgood.world/llms.txt
