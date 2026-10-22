@@ -17,6 +17,7 @@ import { json, optionsResponse } from "./lib/json.js";
 import { handlePublic } from "./routes/public.js";
 import { handleAdmin } from "./routes/admin.js";
 import { handleProjects } from "./routes/projects-ssr.js";
+import { handleSitemap } from "./routes/sitemap.js";
 
 /**
  * Dispatch a single request.
@@ -52,6 +53,18 @@ export async function handleRequest(request, env, ctx) {
       return optionsResponse("GET, HEAD, OPTIONS", request, url);
     }
     return handleProjects(request, env, ctx, url);
+  }
+
+  // Dynamic sitemap: merges the built-in static routes with live project slugs
+  // from D1, so new projects are discoverable without a redeploy.
+  if (pathname === "/sitemap.xml") {
+    if (method !== "GET" && method !== "HEAD") {
+      return new Response("Method Not Allowed", {
+        status: 405,
+        headers: { allow: "GET, HEAD, OPTIONS" },
+      });
+    }
+    return handleSitemap(env);
   }
 
   // Static export handles the rest.

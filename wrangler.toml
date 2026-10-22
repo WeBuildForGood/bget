@@ -22,9 +22,10 @@ routes = [
 directory = "./out"
 binding = "ASSETS"
 not_found_handling = "404-page"
-# Worker runs first for the API and for project detail pages (which are
-# rendered from D1 for SEO); everything else is served from the static export.
-run_worker_first = ["/api/*", "/projects/*"]
+# Worker runs first for the API, project detail pages (rendered from D1 for
+# SEO), and the sitemap (merged with live project slugs); everything else is
+# served from the static export.
+run_worker_first = ["/api/*", "/projects/*", "/sitemap.xml"]
 
 [[d1_databases]]
 binding = "DB"

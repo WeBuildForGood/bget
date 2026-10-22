@@ -140,11 +140,10 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
         {/* Preload hero image for LCP */}
         <link rel="preload" as="image" href="/og.png" fetchPriority="high" />
-        {/* Canonical URL — www vs non-www and trailing slash consistency */}
-        <link rel="canonical" href={SITE.url} />
-        {/* Hreflang for international SEO */}
-        <link rel="alternate" hrefLang="en-US" href={SITE.url} />
-        <link rel="alternate" hrefLang="en" href={SITE.url} />
+        {/* NOTE: canonical + hreflang are emitted per-route by `pageMetadata()`
+            (lib/site.ts) via Next's `alternates` metadata. Hardcoding them here
+            would prepend a homepage canonical to every page and make all routes
+            look like duplicates of `/`. Do not add them back. */}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#07060a" />
         <meta name="linkedin:owner" content="Nikhil Nagpure" />

@@ -28,6 +28,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/problems", priority: 0.9, changeFrequency: "weekly" as const, lastModified: new Date("2026-10-14T00:00:00.000Z") },
     { path: "/projects", priority: 0.8, changeFrequency: "weekly" as const, lastModified: new Date("2026-10-13T00:00:00.000Z") },
     { path: "/activities", priority: 0.7, changeFrequency: "weekly" as const, lastModified: new Date("2026-10-11T00:00:00.000Z") },
+    { path: "/founders", priority: 0.6, changeFrequency: "monthly" as const, lastModified: new Date("2026-10-12T00:00:00.000Z") },
+    { path: "/contact", priority: 0.6, changeFrequency: "monthly" as const, lastModified: new Date("2026-10-12T00:00:00.000Z") },
     { path: "/values", priority: 0.7, changeFrequency: "monthly" as const, lastModified: new Date("2026-10-09T00:00:00.000Z") },
     { path: "/privacy", priority: 0.3, changeFrequency: "yearly" as const, lastModified: new Date("2026-09-01T00:00:00.000Z") },
     { path: "/terms", priority: 0.3, changeFrequency: "yearly" as const, lastModified: new Date("2026-09-01T00:00:00.000Z") },

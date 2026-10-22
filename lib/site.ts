@@ -67,7 +67,14 @@ export function pageMetadata({
     return {
       title,
       description,
-      alternates: { canonical: path },
+      alternates: {
+        canonical: path,
+        languages: {
+          "en-US": path,
+          en: path,
+          "x-default": path,
+        },
+      },
       openGraph: {
         type: "article",
         url: path,
@@ -99,7 +106,17 @@ export function pageMetadata({
   return {
     title,
     description,
-    alternates: { canonical: path },
+    alternates: {
+      canonical: path,
+      // Self-referencing hreflang. The site is English-only today, so every
+      // locale variant points at this same page — never at the homepage, which
+      // would de-index the page it appears on.
+      languages: {
+        "en-US": path,
+        en: path,
+        "x-default": path,
+      },
+    },
     openGraph: {
       type: "website",
       url: path,
