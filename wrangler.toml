@@ -10,7 +10,11 @@ name = "buildforgood"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"
 account_id = "2eff373f1fc9834a686bfb5982b151b2"
-workers_dev = true
+# Production is served only through the custom domains below. Keep the
+# workers.dev hostname and preview URLs off so every deploy cannot silently
+# re-expose an Access-bypassing origin.
+workers_dev = false
+preview_urls = false
 
 # Custom domain — Cloudflare creates the DNS record + SSL automatically
 routes = [
