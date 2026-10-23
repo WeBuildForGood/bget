@@ -11,7 +11,8 @@
  *   GET    /api/admin/me
  *   GET    /api/admin/summary
  *   GET    /api/admin/export?table=<collection>     CSV download
- *   POST   /api/admin/mail/send                     { subject, html_body }
+ *   POST   /api/admin/mail/send                     { subject, html_body, text_body? }
+ *   POST   /api/admin/mail/reply                    { to, subject, html_body?, text_body? }
  *   GET    /api/admin/:collection                   ?status=&q=&limit=&offset=
  *   PATCH  /api/admin/:collection/:id               { status?, notes? }
  *   PATCH  /api/admin/:collection/status            { ids: [...], status }
@@ -24,9 +25,9 @@
  */
 
 import { json, methodNotAllowed, optionsResponse } from "../lib/json.js";
-import { asInt, clean, readBody } from "../lib/validate.js";
+import { asInt, clean, isEmail, readBody } from "../lib/validate.js";
 import { verifyAccess } from "../access.js";
-import { sendToAll } from "../lib/mailing.js";
+import { sendOne, sendToAll } from "../lib/mailing.js";
 
 /**
  * Allowlist of collections that may be listed, updated, or deleted.
@@ -43,14 +44,51 @@ const COLLECTIONS = {
   problems: {
     table: "problems",
     reviewedAt: true,
-    search: ["title", "description", "submitter_name", "email", "location", "slug"],
+    search: [
+      "title",
+      "description",
+      "submitter_name",
+      "email",
+      "location",
+      "slug",
+    ],
     // new | framed | parked | declined | active | solved (see migrations/0001).
     statuses: ["new", "framed", "parked", "declined", "active", "solved"],
+    // Moderators may change who can see a problem; the submitted text itself
+    // stays untouched so the public record cannot be silently rewritten.
+    editable: {
+      visibility: { enum: ["public", "bget", "private"] },
+    },
   },
   projects: {
     table: "projects",
     reviewedAt: true,
-    search: ["title", "one_liner", "description", "lead_name", "lead_email", "slug"],
+    updatedAt: true,
+    search: [
+      "title",
+      "one_liner",
+      "description",
+      "lead_name",
+      "lead_email",
+      "slug",
+    ],
+    // Curated showcase content: stewards may correct and feature a project.
+    // Submitter identity fields (lead_name / lead_email) stay immutable.
+    editable: {
+      title: { max: 200, required: true },
+      one_liner: { max: 300, required: true },
+      description: { max: 10000, required: true },
+      disciplines: { max: 500 },
+      stage: { enum: ["idea", "prototype", "pilot", "live", "scaled"] },
+      url: { max: 500, url: true },
+      repo: { max: 500, url: true },
+      demo: { max: 500, url: true },
+      cover_image: { max: 500, url: true },
+      tags: { max: 500 },
+      team: { max: 2000 },
+      location: { max: 200 },
+      featured: { bool: true },
+    },
   },
   contact_messages: {
     table: "contact_messages",
@@ -70,8 +108,28 @@ const COLLECTIONS = {
   subscribers: {
     table: "subscribers",
     reviewedAt: false,
+    updatedAt: true,
+    hasNotes: false,
     search: ["email", "name"],
     statuses: ["active", "unsubscribed", "bounced"],
+  },
+  mail_sends: {
+    table: "mail_sends",
+    reviewedAt: false,
+    readOnly: true,
+    hasStatus: false,
+    hasNotes: false,
+    orderBy: "sent_at",
+    // The list view never needs the full body; exporting still includes it.
+    select: [
+      "id",
+      "subscriber_id",
+      "subject",
+      "sent_at",
+      "opened_count",
+      "clicked_count",
+    ],
+    search: ["subject"],
   },
 };
 
@@ -141,6 +199,14 @@ export async function handleAdmin(request, env, ctx, url) {
   if (parts.length === 2 && parts[0] === "mail" && parts[1] === "send") {
     if (request.method !== "POST") return methodNotAllowed("POST, OPTIONS");
     return sendMail(request, env);
+  }
+
+  // POST /api/admin/mail/reply  { to, subject, html_body?, text_body? }
+  // Single-recipient reply. Separate from /mail/send so a reply can never fan
+  // out to the whole list through a missing field.
+  if (parts.length === 2 && parts[0] === "mail" && parts[1] === "reply") {
+    if (request.method !== "POST") return methodNotAllowed("POST, OPTIONS");
+    return replyMail(request, env);
   }
 
   const collection = COLLECTIONS[parts[0]];
@@ -235,13 +301,14 @@ async function summary(env) {
       `SELECT COUNT(*) AS n FROM ${config.table}`,
     ).first();
 
-    const { results } = await env.DB.prepare(
-      `SELECT status, COUNT(*) AS n FROM ${config.table} GROUP BY status`,
-    ).all();
-
     const byStatus = {};
-    for (const row of results ?? []) {
-      byStatus[row.status ?? "unknown"] = row.n;
+    if (config.hasStatus !== false) {
+      const { results } = await env.DB.prepare(
+        `SELECT status, COUNT(*) AS n FROM ${config.table} GROUP BY status`,
+      ).all();
+      for (const row of results ?? []) {
+        byStatus[row.status ?? "unknown"] = row.n;
+      }
     }
 
     result[name] = { total: totalRow?.n ?? 0, status: byStatus };
@@ -283,8 +350,10 @@ async function list(env, url, config) {
     .bind(...binds)
     .first();
 
+  const columns = config.select ? config.select.join(", ") : "*";
+  const orderBy = config.orderBy || "created_at";
   const { results } = await env.DB.prepare(
-    `SELECT * FROM ${config.table} ${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
+    `SELECT ${columns} FROM ${config.table} ${where} ORDER BY ${orderBy} DESC, id DESC LIMIT ? OFFSET ?`,
   )
     .bind(...binds, limit, offset)
     .all();
@@ -309,7 +378,7 @@ function buildFilter(config, { status, q }) {
   const clauses = [];
   const binds = [];
 
-  if (status) {
+  if (status && config.hasStatus !== false) {
     clauses.push("status = ?");
     binds.push(status);
   }
@@ -348,36 +417,92 @@ function likePattern(value) {
  * @returns {Promise<Response>}
  */
 async function update(request, env, config, id) {
+  if (config.readOnly) {
+    return json({ ok: false, error: "read_only" }, 405);
+  }
+
   const parsed = await readBody(request);
-  if (!parsed.ok) return json({ ok: false, error: parsed.error }, parsed.status);
+  if (!parsed.ok)
+    return json({ ok: false, error: parsed.error }, parsed.status);
   const body = parsed.body;
 
   const sets = [];
   const binds = [];
   let statusChanged = false;
+  let statusValue = null;
 
   if (body.status !== undefined) {
     const status = clean(body.status, 40);
-    if (!status) return json({ ok: false, error: "invalid", fields: ["status"] }, 422);
+    if (!status)
+      return json({ ok: false, error: "invalid", fields: ["status"] }, 422);
     if (config.statuses && !config.statuses.includes(status)) {
       return json({ ok: false, error: "invalid", fields: ["status"] }, 422);
     }
     sets.push("status = ?");
     binds.push(status);
     statusChanged = true;
+    statusValue = status;
   }
 
   if (body.notes !== undefined) {
+    if (config.hasNotes === false) {
+      return json({ ok: false, error: "invalid", fields: ["notes"] }, 422);
+    }
     sets.push("notes = ?");
     binds.push(clean(body.notes, 10000));
   }
 
+  // Per-collection allowlisted content edits. Values are cleaned and bound;
+  // the field name comes from this module's config, never from the request.
+  for (const [field, rule] of Object.entries(config.editable || {})) {
+    if (body[field] === undefined) continue;
+
+    if (rule.bool) {
+      const raw = body[field];
+      const value =
+        raw === true || raw === 1 || raw === "1" || raw === "true" ? 1 : 0;
+      sets.push(`${field} = ?`);
+      binds.push(value);
+      continue;
+    }
+
+    const value = clean(body[field], rule.max ?? 500);
+    if (rule.enum && !rule.enum.includes(value)) {
+      return json({ ok: false, error: "invalid", fields: [field] }, 422);
+    }
+    if (rule.required && !value) {
+      return json({ ok: false, error: "invalid", fields: [field] }, 422);
+    }
+    if (rule.url && value && !/^(https?:\/\/|\/)/i.test(value)) {
+      return json({ ok: false, error: "invalid", fields: [field] }, 422);
+    }
+    sets.push(`${field} = ?`);
+    binds.push(value);
+  }
+
   if (!sets.length) {
-    return json({ ok: false, error: "invalid", fields: ["status", "notes"] }, 422);
+    return json(
+      {
+        ok: false,
+        error: "invalid",
+        fields: ["status", "notes", ...Object.keys(config.editable || {})],
+      },
+      422,
+    );
   }
 
   if (statusChanged && config.reviewedAt) {
     sets.push("reviewed_at = datetime('now')");
+  }
+  if (config.updatedAt) {
+    sets.push("updated_at = datetime('now')");
+  }
+  if (statusValue !== null && config.table === "subscribers") {
+    sets.push(
+      statusValue === "unsubscribed"
+        ? "unsubscribed_at = datetime('now')"
+        : "unsubscribed_at = NULL",
+    );
   }
 
   binds.push(id);
@@ -401,12 +526,18 @@ async function update(request, env, config, id) {
  * @returns {Promise<Response>}
  */
 async function bulkStatus(request, env, config) {
+  if (config.readOnly || config.hasStatus === false) {
+    return json({ ok: false, error: "read_only" }, 405);
+  }
+
   const parsed = await readBody(request);
-  if (!parsed.ok) return json({ ok: false, error: parsed.error }, parsed.status);
+  if (!parsed.ok)
+    return json({ ok: false, error: parsed.error }, parsed.status);
   const body = parsed.body;
 
   const status = clean(body.status, 40);
-  if (!status) return json({ ok: false, error: "invalid", fields: ["status"] }, 422);
+  if (!status)
+    return json({ ok: false, error: "invalid", fields: ["status"] }, 422);
   if (config.statuses && !config.statuses.includes(status)) {
     return json({ ok: false, error: "invalid", fields: ["status"] }, 422);
   }
@@ -416,7 +547,8 @@ async function bulkStatus(request, env, config) {
     .map((value) => asInt(value, { min: 1 }))
     .filter((value) => value !== null)
     .slice(0, BULK_LIMIT);
-  if (!ids.length) return json({ ok: false, error: "invalid", fields: ["ids"] }, 422);
+  if (!ids.length)
+    return json({ ok: false, error: "invalid", fields: ["ids"] }, 422);
 
   const placeholders = ids.map(() => "?").join(", ");
   const sets = ["status = ?"];
@@ -442,6 +574,10 @@ async function bulkStatus(request, env, config) {
  * @returns {Promise<Response>}
  */
 async function remove(env, config, id) {
+  if (config.readOnly) {
+    return json({ ok: false, error: "read_only" }, 405);
+  }
+
   await env.DB.prepare(`DELETE FROM ${config.table} WHERE id = ?`)
     .bind(id)
     .run();
@@ -463,25 +599,89 @@ async function remove(env, config, id) {
  */
 async function sendMail(request, env) {
   const parsed = await readBody(request);
-  if (!parsed.ok) return json({ ok: false, error: parsed.error }, parsed.status);
+  if (!parsed.ok)
+    return json({ ok: false, error: parsed.error }, parsed.status);
 
   const subject = clean(parsed.body.subject, 200);
   const htmlBody = clean(parsed.body.html_body, 100_000);
+  const textBody = clean(parsed.body.text_body, 100_000);
   if (!subject) return json({ ok: false, error: "invalid_subject" }, 400);
-  if (!htmlBody) return json({ ok: false, error: "invalid_body" }, 400);
+  if (!htmlBody && !textBody)
+    return json({ ok: false, error: "invalid_body" }, 400);
 
   if (!env.RESEND_API_KEY) {
     return json(
-      { ok: false, error: "mail_not_configured", detail: "RESEND_API_KEY is not set" },
+      {
+        ok: false,
+        error: "mail_not_configured",
+        detail: "RESEND_API_KEY is not set",
+      },
       503,
     );
   }
 
-  const result = await sendToAll(env, { subject, html_body: htmlBody });
+  const result = await sendToAll(env, {
+    subject,
+    html_body: htmlBody,
+    text_body: textBody,
+  });
   return json({
     ok: result.totalFailed === 0,
     ...result,
   });
+}
+
+/**
+ * Reply to one person from the console.
+ * `POST /api/admin/mail/reply`  body: { to, subject, html_body?, text_body? }
+ *
+ * The address is validated, the subject is single-line, and the result is
+ * honest: 200 only when Resend accepted the message, 502 when it did not.
+ *
+ * @param {Request} request
+ * @param {{DB: D1Database, RESEND_API_KEY?: string}} env
+ * @returns {Promise<Response>}
+ */
+async function replyMail(request, env) {
+  const parsed = await readBody(request);
+  if (!parsed.ok)
+    return json({ ok: false, error: parsed.error }, parsed.status);
+
+  const to = clean(parsed.body.to, 254).toLowerCase();
+  const subject = clean(parsed.body.subject, 200);
+  const htmlBody = clean(parsed.body.html_body, 100_000);
+  const textBody = clean(parsed.body.text_body, 100_000);
+
+  if (!isEmail(to)) {
+    return json({ ok: false, error: "invalid", fields: ["to"] }, 422);
+  }
+  if (!subject || subject.includes("\n")) {
+    return json({ ok: false, error: "invalid_subject" }, 422);
+  }
+  if (!htmlBody && !textBody) {
+    return json({ ok: false, error: "invalid_body" }, 400);
+  }
+
+  if (!env.RESEND_API_KEY) {
+    return json(
+      {
+        ok: false,
+        error: "mail_not_configured",
+        detail: "RESEND_API_KEY is not set",
+      },
+      503,
+    );
+  }
+
+  const sent = await sendOne(env, {
+    to,
+    subject,
+    html_body: htmlBody,
+    text_body: textBody,
+  });
+
+  if (!sent) return json({ ok: false, error: "send_failed" }, 502);
+  return json({ ok: true });
 }
 
 /**
@@ -498,7 +698,7 @@ async function exportCsv(env, url) {
   if (!config) return json({ ok: false, error: "invalid_table" }, 400);
 
   const { results } = await env.DB.prepare(
-    `SELECT * FROM ${config.table} ORDER BY created_at DESC, id DESC LIMIT ?`,
+    `SELECT * FROM ${config.table} ORDER BY ${config.orderBy || "created_at"} DESC, id DESC LIMIT ?`,
   )
     .bind(EXPORT_LIMIT)
     .all();

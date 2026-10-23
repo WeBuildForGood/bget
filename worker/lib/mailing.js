@@ -27,10 +27,10 @@ const BATCH_SIZE = 50;
  * Returns true on success, false otherwise (best-effort, never throws).
  *
  * @param {Record<string, string|undefined>} env
- * @param {{to: string, subject: string, html_body?: string}} opts
+ * @param {{to: string, subject: string, html_body?: string, text_body?: string}} opts
  * @returns {Promise<boolean>}
  */
-async function resendOne(env, { to, subject, html_body }) {
+async function resendOne(env, { to, subject, html_body, text_body }) {
   const apiKey = env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn("mailing: no RESEND_API_KEY set, skipping:", to);
@@ -43,18 +43,39 @@ async function resendOne(env, { to, subject, html_body }) {
         authorization: `Bearer ${apiKey}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        from: env.NOTIFY_FROM || DEFAULT_FROM,
-        to: [to],
-        subject,
-        html_body: html_body ?? "",
-      }),
+      body: JSON.stringify(
+        buildResendPayload(env, { to, subject, html_body, text_body }),
+      ),
     });
     return res.ok;
   } catch (err) {
     console.error("mailing: resend failed", err);
     return false;
   }
+}
+
+/**
+ * Build the JSON body for Resend's `POST /emails` endpoint.
+ *
+ * Resend names the HTML field `html` (not `html_body`). Keeping the mapping in
+ * one exported function makes the wire contract unit-testable, so a future
+ * rename cannot silently turn every send into a 422.
+ *
+ * @param {Record<string, string|undefined>} env
+ * @param {{to: string, subject: string, html_body?: string, text_body?: string}} opts
+ * @returns {{from: string, to: string[], subject: string, html?: string, text?: string}}
+ */
+export function buildResendPayload(env, { to, subject, html_body, text_body }) {
+  const payload = {
+    from: env.NOTIFY_FROM || DEFAULT_FROM,
+    to: [to],
+    subject,
+  };
+  if (html_body) payload.html = html_body;
+  if (text_body) payload.text = text_body;
+  // Resend requires one of html/text. An empty `text` is explicit and valid.
+  if (!payload.html && !payload.text) payload.text = "";
+  return payload;
 }
 
 /**
@@ -74,7 +95,7 @@ async function logSend(env, subscriberId, subject, bodyHtml, sentAt) {
   try {
     await env.DB.prepare(
       `INSERT INTO mail_sends (subscriber_id, subject, html_body, sent_at)
-       VALUES (?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?)`,
     ).run(subscriberId, subject, bodyHtml, sentAt);
     return true;
   } catch (err) {
@@ -94,12 +115,39 @@ async function countActiveSubscribers(env) {
   if (!env.DB) return 0;
   try {
     const row = await env.DB.prepare(
-      `SELECT COUNT(*) AS n FROM subscribers WHERE status = 'active'`
+      `SELECT COUNT(*) AS n FROM subscribers WHERE status = 'active'`,
     ).first();
     return Number(row?.n || 0);
   } catch {
     return 0;
   }
+}
+
+/**
+ * Send one email (an operator reply) and log it.
+ *
+ * Unlike `sendToAll`, this targets a single validated address and reports the
+ * outcome to the caller so the admin API can return an honest 200/502. The
+ * `mail_sends` row has `subscriber_id = NULL` because the recipient may not be
+ * on the mailing list at all.
+ *
+ * @param {Record<string, string|undefined>} env
+ * @param {{to: string, subject: string, html_body?: string, text_body?: string}} opts
+ * @returns {Promise<boolean>}
+ */
+export async function sendOne(
+  env,
+  { to, subject, html_body = "", text_body = "" },
+) {
+  const ok = await resendOne(env, { to, subject, html_body, text_body });
+  await logSend(
+    env,
+    null,
+    subject,
+    html_body || text_body,
+    new Date().toISOString(),
+  );
+  return ok;
 }
 
 /**
@@ -118,7 +166,7 @@ async function countActiveSubscribers(env) {
  * @returns {Promise<{totalSent: number, totalFailed: number, totalActive: number}>}
  */
 export async function sendToAll(env, params, options = {}) {
-  const { subject, html_body } = params;
+  const { subject, html_body, text_body } = params;
   const onProgress = options.onProgress || (() => {});
 
   // Test whether the subscribers table is even present. If not, we can't send
@@ -135,7 +183,7 @@ export async function sendToAll(env, params, options = {}) {
     const batch = await env.DB.prepare(
       `SELECT id, email FROM subscribers
        WHERE status = 'active'
-       LIMIT ? OFFSET ?`
+       LIMIT ? OFFSET ?`,
     )
       .bind(BATCH_SIZE, offset)
       .all();
@@ -148,8 +196,15 @@ export async function sendToAll(env, params, options = {}) {
         to: sub.email,
         subject,
         html_body,
+        text_body,
       });
-      await logSend(env, sub.id, subject, html_body, new Date().toISOString());
+      await logSend(
+        env,
+        sub.id,
+        subject,
+        html_body || text_body || "",
+        new Date().toISOString(),
+      );
       if (ok) sent++;
       else failed++;
       onProgress(sent, offset + rows.length);
@@ -172,5 +227,9 @@ export async function sendToAll(env, params, options = {}) {
  * @param {{email?: string, type: string}} opts
  */
 export function notifyListOwner(env, ctx, opts) {
-  if (opts?.email) sendConfirmation(env, ctx, { email: opts.email, type: opts.type || "list_update" });
+  if (opts?.email)
+    sendConfirmation(env, ctx, {
+      email: opts.email,
+      type: opts.type || "list_update",
+    });
 }
