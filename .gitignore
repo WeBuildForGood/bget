@@ -4,6 +4,8 @@
 # next.js
 /.next/
 /out/
+/.turbo/
+/.vercel/
 
 # cloudflare / opennext build output
 /.open-next/
