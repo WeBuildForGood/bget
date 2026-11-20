@@ -574,6 +574,12 @@
   }
 }
 
+/* Ensure visible focus indicators meet contrast */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* Comfortable tap targets for standalone, in-flow call-to-action links on
    touch devices only (desktop layout is untouched). Links embedded inside a
    sentence keep their natural inline box — WCAG 2.5.8 exempts inline text —

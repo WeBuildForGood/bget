@@ -7,10 +7,12 @@ for turning meaningful problems into collective action.
 
 | | |
 | --- | --- |
-| **Canonical site** | **https://buildforgood.world** (apex; `www.buildforgood.world` also serves it) |
-| **Direct Worker URL (backup)** | https://buildforgood.shadownik.workers.dev |
-| **Hosting** | Cloudflare Workers (`buildforgood`) + D1 |
+| **Canonical site** | **https://buildforgood.world** (apex; `www.buildforgood.world` redirects to apex) |
+| **Staging site** | **https://staging.buildforgood.world** (Cloudflare Access restricted) |
+| **Worker origin** | `workers_dev = false`, `preview_urls = false` (enforces custom domains & Access policies) |
+| **Hosting** | Cloudflare Workers (`buildforgood` / `buildforgood-staging`) + D1 |
 | **Admin** | `/admin` and `/api/admin/*`, protected by Cloudflare Access |
+| **Documentation** | [`docs/`](docs/) — Full BGET operating system (manifesto, governance, Problem Commons) |
 
 Build For Good is a community where people submit real problems and build
 **Labs** to solve them. Anyone can contribute a problem to the **Problem
@@ -56,6 +58,9 @@ else is served from the static export.
 | `/founders` | About the founders |
 | `/about` | What Build For Good is, the founder, and how we present people |
 | `/contact` | Contact, suggestions and feedback forms |
+| `/privacy` | Privacy policy (local-first, no tracking) |
+| `/terms` | Community terms and contribution standards |
+| `/accessibility` | Accessibility statement and conformance targets |
 | `/admin` | Admin review panel (gated via Cloudflare Access) |
 
 ---
@@ -96,13 +101,17 @@ migrations/
   ├── 0001_init.sql                 # applications, problems
   ├── 0002_projects.sql             # projects
   ├── 0003_inbox.sql                # contact_messages, suggestions, feedback
-  └── 0004_rate_limits_and_slugs.sql# problems.slug, rate_limits
+  ├── 0004_rate_limits_and_slugs.sql# problems.slug, rate_limits
+  ├── 0005-subscribers.sql          # subscribers table
+  └── 0006-mail-sends.sql           # mail_sends log table
+docs/                               # BGET community operating system (manifesto, governance, etc.)
+tools/                              # Outreach & invitation utilities
 seed/
   ├── README.md                     # What the seed contains and why
-  ├── problems.sql                  # 6 Problem Commons rows
-  └── projects.sql                  # 6 Labs rows
+  ├── problems.sql                  # 6 Problem Commons rows (INSERT OR IGNORE)
+  └── projects.sql                  # 6 Labs rows (INSERT OR IGNORE)
 scripts/
-  └── seed.mjs                      # Idempotent D1 seed runner
+  └── seed.mjs                      # Safe D1 seed runner (local by default)
 tests/
   ├── ratelimit.test.mjs            # node --test unit tests for worker/lib/*
   ├── slug.test.mjs                 # (ratelimit, slug, validate)
@@ -137,6 +146,11 @@ Common POST responses: `200 { ok: true, id }` · `422 { ok: false, error: "inval
 | --- | --- | --- | --- |
 | `GET` | `/api/health` | Liveness + a trivial D1 probe | — |
 | `GET` | `/api/stats` | Real row counts | — |
+| `GET` | `/api/metrics` | Public honest metrics summary | — |
+| `GET` | `/api/subscribers/count` | Active newsletter subscriber count | — |
+| `POST` | `/api/subscribe` | Join email newsletter (deduped, generic 202) | `subscribers` |
+| `POST` | `/api/unsubscribe` | Unsubscribe email address (generic 202) | `subscribers` |
+| `GET` | `/api/subscribers` | Active subscribers list (Cloudflare Access protected) | `subscribers` |
 | `GET` | `/api/problems` | Public Problem Commons (`?limit=` ≤100, `?offset=`), newest first | `problems` |
 | `GET` | `/api/problems/:slug` | One public problem (numeric-id fallback) | `problems` |
 | `POST` | `/api/problems` | Submit a problem (`visibility`, `title`, `description`, …) | `problems` |

@@ -10,6 +10,7 @@
 
 import { handleRequest } from "./router.js";
 import { json } from "./lib/json.js";
+import { handleWwwRedirect } from "./redirect.js";
 
 export default {
   /**
@@ -20,7 +21,7 @@ export default {
    */
   async fetch(request, env, ctx) {
     try {
-      const response = await handleRequest(request, env, ctx);
+      const response = handleWwwRedirect(request) || (await handleRequest(request, env, ctx));
 
       // Add security headers to all responses.
       // We add these at the Worker entry point so every code path (API, SSR,
@@ -44,6 +45,9 @@ export default {
       // These are safe for every response type.
       setHeader("X-Frame-Options", "DENY");
       setHeader("X-Content-Type-Options", "nosniff");
+      setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+      setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+      setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
 
       // Content-Security-Policy differs for API vs HTML.
       //
@@ -88,15 +92,22 @@ export default {
       const url = new URL(request.url);
       if (url.pathname.startsWith("/api/")) {
         const errResp = json({ ok: false, error: "server_error" }, 500);
-        errResp.headers.set("X-Frame-Options", "DENY");
-        errResp.headers.set("X-Content-Type-Options", "nosniff");
-        errResp.headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none';");
-        return errResp;
+        const headers = new Headers(errResp.headers);
+        headers.set("X-Frame-Options", "DENY");
+        headers.set("X-Content-Type-Options", "nosniff");
+        headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+        headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+        headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+        headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none';");
+        return new Response(errResp.body, { status: 500, headers });
       }
-      return new Response("Internal Server Error", {
-        status: 500,
-        headers: { "content-type": "text/plain; charset=utf-8", "X-Content-Type-Options": "nosniff" },
-      });
+      const headers = new Headers({ "content-type": "text/plain; charset=utf-8" });
+      headers.set("X-Content-Type-Options", "nosniff");
+      headers.set("X-Frame-Options", "DENY");
+      headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+      headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+      headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+      return new Response("Internal Server Error", { status: 500, headers });
     }
   },
 };

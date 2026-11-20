@@ -2,8 +2,9 @@ name: CI
 
 on:
   pull_request:
+    branches: [main, staging, dev]
   push:
-    branches: [main]
+    branches: [main, staging, dev]
   workflow_dispatch:
 
 concurrency:
@@ -11,11 +12,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # NOTE: keep the job id/name `test` — branch protection requires this exact
-  # check name.
+  # NOTE: Keep the exact job id `test` and name `Test` — branch protection requires this check name.
   test:
+    name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,7 +30,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # `npm run build` is a Next.js static export -> `out/` (see
-      # next.config.mjs). A successful export is the build gate.
+      - name: Type-check (Next.js & Cloudflare Worker)
+        run: npm run typecheck
+
+      - name: Unit tests (node --test)
+        run: npm test
+
       - name: Build (static export)
         run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: "https://buildforgood.world"
+
+      - name: Verify static export
+        run: |
+          test -f out/index.html || (echo "Static export missing out/index.html" && exit 1)
+          test -f out/404.html || (echo "Static export missing out/404.html" && exit 1)
+          echo "Static export OK: $(find out -type f | wc -l) files generated."

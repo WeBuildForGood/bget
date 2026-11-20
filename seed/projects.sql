@@ -4,18 +4,17 @@
 -- kebab-case; `status` is 'approved' so the public API and the server-rendered
 -- project pages pick these rows up.
 --
--- Idempotency: explicit `id` with `INSERT OR REPLACE`, and `slug` is stable per
--- row, so re-running converges to exactly these six projects (the UNIQUE slug
--- constraint can never be violated by a duplicate, since each slug always maps
--- to the same id). `created_at` / `updated_at` are pinned so ordering
--- (`featured DESC, created_at DESC`) is deterministic across runs.
+-- Idempotency: explicit `id` with `INSERT OR IGNORE`, and `slug` is stable per
+-- row, so re-running seeds missing projects without ever overwriting or deleting
+-- conflicting real user projects. `created_at` / `updated_at` are pinned so
+-- ordering (`featured DESC, created_at DESC`) is deterministic across runs.
 --
 -- `disciplines` and `tags` are comma-separated lists, which is exactly what
 -- worker/lib/format.js `splitList` (and components/projects/project-card.tsx
 -- `projectTags`) parse. No fabricated URLs, cover images, or emails are seeded,
 -- so nothing here can 404 or impersonate a real address.
 
-INSERT OR REPLACE INTO projects
+INSERT OR IGNORE INTO projects
   (id, created_at, updated_at, slug, title, one_liner, description, disciplines,
    stage, lead_name, location, team, tags, status, featured, reviewed_at)
 VALUES

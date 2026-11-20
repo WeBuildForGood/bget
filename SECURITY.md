@@ -21,9 +21,10 @@ public disclosure.
 The site is a **static Next.js export** served by a **Cloudflare Worker** that
 also exposes a JSON API and an Access-protected admin API, backed by **Cloudflare
 D1**. It is reachable at the canonical origin **https://buildforgood.world**
-(`www.buildforgood.world` also serves it); the direct Worker hostname
-**https://buildforgood.shadownik.workers.dev** is a backup/alternative route to
-the same deployment.
+(`www.buildforgood.world` redirects to apex). Staging is hosted at
+**https://staging.buildforgood.world** behind Cloudflare Zero Trust Access.
+Worker-level origins (`workers.dev` and preview URLs) are deliberately disabled
+(`workers_dev = false`, `preview_urls = false`) to enforce edge-level Access controls.
 
 In scope:
 

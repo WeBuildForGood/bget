@@ -92,7 +92,8 @@ function allowForApiPath(pathname) {
   if (
     pathname === "/api/health" ||
     pathname === "/api/stats" ||
-    pathname === "/api/metrics"
+    pathname === "/api/metrics" ||
+    pathname === "/api/subscribers/count"
   ) {
     return "GET, HEAD, OPTIONS";
   }
@@ -105,6 +106,9 @@ function allowForApiPath(pathname) {
     pathname === "/api/feedback"
   ) {
     return "POST, OPTIONS";
+  }
+  if (pathname === "/api/subscribers") {
+    return "GET, OPTIONS";
   }
   return "GET, POST, OPTIONS";
 }

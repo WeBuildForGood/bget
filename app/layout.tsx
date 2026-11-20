@@ -32,12 +32,9 @@ export const metadata: Metadata = {
   creator: SITE.name,
   publisher: SITE.name,
   category: "community",
-  alternates: {
-    canonical: "/",
-    languages: {
-      "en-US": "/",
-    },
-  },
+  // Canonicals and hreflang are set per-route via pageMetadata() in lib/site.ts.
+  // Do not set them here to avoid making every page canonical to "/".
+
   openGraph: {
     type: "website",
     url: "/",
@@ -102,13 +99,10 @@ const organizationLd = {
         "@type": "Person",
         name: SITE.founder,
       },
-      sameAs: [
-        { "@id": SITE.github },
-      ],
+      sameAs: [SITE.github],
       contactPoint: {
         "@type": "ContactPoint",
         email: SITE.email,
-        telephone: "+1-555-123-4567",
         url: SITE.url,
       },
     },
@@ -132,30 +126,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Preconnect to external domains for performance */}
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
-        {/* DNS prefetch for external resources */}
-        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        {/* Preload hero image for LCP */}
-        <link rel="preload" as="image" href="/og.png" fetchPriority="high" />
-        {/* NOTE: canonical + hreflang are emitted per-route by `pageMetadata()`
-            (lib/site.ts) via Next's `alternates` metadata. Hardcoding them here
-            would prepend a homepage canonical to every page and make all routes
-            look like duplicates of `/`. Do not add them back. */}
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#07060a" />
+        {/* Preload hero poster for LCP on landing */}
+        <link rel="preload" as="image" href="/images/hero-poster.webp" fetchPriority="high" />
         <meta name="linkedin:owner" content="Nikhil Nagpure" />
         <meta name="linkedin:owner:type" content="Person" />
-        <meta name="pin:media" content="/og.png" />
-        <meta name="pin:url" content="/" />
-        <meta name="pin:description" content="Build For Good — Build. Grow. Evolve. Together." />
       </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
-        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:visually-hidden">
+        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2">
           Skip to content
         </a>
         <ScrollProgress />

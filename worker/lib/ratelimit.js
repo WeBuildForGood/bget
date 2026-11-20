@@ -98,8 +98,7 @@ export async function hashIp(ip, salt) {
  * @param {{DB: D1Database, RATE_LIMIT_SALT?: string}} env
  * @param {Request} request
  * @param {string} endpoint Logical bucket, e.g. "/api/problems".
- * @returns {Promise<{ok: true} | {ok: true, degraded: true}
- *   | {ok: false, retryAfter: number}>}
+ * @returns {Promise<{ok: true, degraded?: boolean, retryAfter?: number} | {ok: false, retryAfter: number}>}
  */
 export async function enforceRateLimit(env, request, endpoint) {
   try {
@@ -247,8 +246,7 @@ const EMAIL_BUCKET = {
  * @param {{DB: D1Database, RATE_LIMIT_SALT?: string}} env
  * @param {string} email Address to throttle (hashed before storage).
  * @param {{seconds?: number, max?: number}} [opts]
- * @returns {Promise<{ok: true} | {ok: true, degraded: true}
- *   | {ok: false, retryAfter: number}>}
+ * @returns {Promise<{ok: true, degraded?: boolean, retryAfter?: number} | {ok: false, retryAfter: number}>}
  */
 export async function enforceEmailCooldown(env, email, opts = {}) {
   const seconds = opts.seconds ?? EMAIL_BUCKET.seconds;

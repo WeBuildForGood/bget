@@ -38,7 +38,6 @@ export function IntegrationsSection() {
   const { metrics } = usePublicMetrics();
   const [isVisible, setIsVisible] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -93,6 +92,7 @@ export function IntegrationsSection() {
             aria-hidden="false"
             width={1920}
             height={923}
+            sizes="100vw"
             loading="lazy"
             decoding="async"
             className="w-full h-auto object-cover"
@@ -117,27 +117,27 @@ export function IntegrationsSection() {
               onMouseEnter={(e) => {
                 setHoveredIndex(index);
                 const rect = e.currentTarget.getBoundingClientRect();
-                setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                e.currentTarget.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+                e.currentTarget.style.setProperty("--my", `${e.clientY - rect.top}px`);
               }}
               onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
-                setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                e.currentTarget.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+                e.currentTarget.style.setProperty("--my", `${e.clientY - rect.top}px`);
               }}
               onMouseLeave={() => {
                 setHoveredIndex(null);
-                setMousePos(null);
               }}
             >
-              {/* Cursor-following halo */}
-              {hoveredIndex === index && mousePos && (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 z-0"
-                  style={{
-                    background: `radial-gradient(200px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255,255,255,0.1) 0%, transparent 70%)`,
-                  }}
-                />
-              )}
+              {/* Cursor-following halo (GPU-accelerated CSS vars, 0 React re-renders) */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{
+                  background:
+                    "radial-gradient(200px circle at var(--mx, -200px) var(--my, -200px), rgba(255,255,255,0.08) 0%, transparent 70%)",
+                }}
+              />
               {/* Category tag */}
               <span className={`absolute top-3 right-3 text-xs font-mono px-2 py-0.5 transition-colors ${
                 hoveredIndex === index

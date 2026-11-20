@@ -40,25 +40,28 @@ database_id = "d95b7ba0-f4d4-4efa-9e91-dfe6c4d8b64c"
 # Non-production environments (used by CI: `wrangler deploy --env staging` /
 # `--env preview`).
 #
-# `routes = []` is REQUIRED: `routes` IS inherited by environments in Wrangler
-# v4, so without it a preview/staging deploy would reassign the production
-# custom domains (buildforgood.world / www.buildforgood.world) away from the
-# production Worker.
+# `routes = []` is REQUIRED when not declaring custom domains: `routes` IS
+# inherited by environments in Wrangler v4, so without it a preview/staging
+# deploy would reassign the production custom domains (buildforgood.world /
+# www.buildforgood.world) away from the production Worker.
 #
-# `d1_databases` is NOT inherited by environments, so each env declares its own
-# binding below. It currently points at the SAME production database — that
-# means a submission made against a preview/staging host writes to production
-# data. Replace `database_id` with a separate database if previews should be
-# isolated.
+# Staging uses an isolated D1 database (`buildforgood-staging`), ensuring
+# non-production tests and form submissions never mutate production data.
 [env.staging]
 name = "buildforgood-staging"
-workers_dev = true
-routes = []
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "staging.buildforgood.world", custom_domain = true }
+]
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
 
 [[env.staging.d1_databases]]
 binding = "DB"
-database_name = "buildforgood-prod"
-database_id = "d95b7ba0-f4d4-4efa-9e91-dfe6c4d8b64c"
+database_name = "buildforgood-staging"
+database_id = "db9f951c-1735-43e4-ac0e-a2bb0eb9f93f"
 
 [env.preview]
 name = "buildforgood-preview"
@@ -67,8 +70,8 @@ routes = []
 
 [[env.preview.d1_databases]]
 binding = "DB"
-database_name = "buildforgood-prod"
-database_id = "d95b7ba0-f4d4-4efa-9e91-dfe6c4d8b64c"
+database_name = "buildforgood-staging"
+database_id = "db9f951c-1735-43e4-ac0e-a2bb0eb9f93f"
 
 # ---------------------------------------------------------------------------
 # Optional configuration — the Worker runs correctly with none of these set.

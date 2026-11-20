@@ -1,15 +1,20 @@
 version: 2
 updates:
-  # Dependabot configuration for the bget-website project
   - package-ecosystem: "npm"
-    directory: "/workspace/projects/personal projects/opensource projects/bget-website"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 10
-    reviewers:
-      - "maintainer"
     labels:
-      - "security"
-      - "update"
+      - "dependencies"
+      - "javascript"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"

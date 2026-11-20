@@ -5,7 +5,7 @@ const nextConfig = {
   // export through the ASSETS binding and handles the /api/* form endpoints.
   output: 'export',
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   // Production hardening. All of these are compatible with `output: 'export'`
   // (nothing here requires a Node server at request time).

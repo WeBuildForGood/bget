@@ -1,20 +1,21 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { Navigation } from "@/components/landing/navigation";
 import { HeroSection } from "@/components/landing/hero-section";
-import { FeaturesSection } from "@/components/landing/features-section";
-import { HowItWorksSection } from "@/components/landing/how-it-works-section";
-import { InfrastructureSection } from "@/components/landing/infrastructure-section";
-import { MetricsSection } from "@/components/landing/metrics-section";
-import { IntegrationsSection } from "@/components/landing/integrations-section";
-import { SecuritySection } from "@/components/landing/security-section";
-import { DevelopersSection } from "@/components/landing/developers-section";
-import { TestimonialsSection } from "@/components/landing/testimonials-section";
-import { PricingSection } from "@/components/landing/pricing-section";
 import { HomepageFaq } from "@/components/landing/homepage-faq";
-import { SubscriptionSection } from "@/components/landing/subscription-section";
 import { JsonLd, webPageLd } from "@/components/seo/json-ld";
 import { SITE, pageMetadata } from "@/lib/site";
-import { BreadcrumbList } from "@/components/ui/breadcrumb";
+
+const FeaturesSection = dynamic(() => import("@/components/landing/features-section").then((m) => m.FeaturesSection));
+const HowItWorksSection = dynamic(() => import("@/components/landing/how-it-works-section").then((m) => m.HowItWorksSection));
+const InfrastructureSection = dynamic(() => import("@/components/landing/infrastructure-section").then((m) => m.InfrastructureSection));
+const MetricsSection = dynamic(() => import("@/components/landing/metrics-section").then((m) => m.MetricsSection));
+const IntegrationsSection = dynamic(() => import("@/components/landing/integrations-section").then((m) => m.IntegrationsSection));
+const SecuritySection = dynamic(() => import("@/components/landing/security-section").then((m) => m.SecuritySection));
+const DevelopersSection = dynamic(() => import("@/components/landing/developers-section").then((m) => m.DevelopersSection));
+const TestimonialsSection = dynamic(() => import("@/components/landing/testimonials-section").then((m) => m.TestimonialsSection));
+const PricingSection = dynamic(() => import("@/components/landing/pricing-section").then((m) => m.PricingSection));
+const SubscriptionSection = dynamic(() => import("@/components/landing/subscription-section").then((m) => m.SubscriptionSection));
 
 /**
  * The home route keeps the root layout's brand title (`SITE.name — tagline`)
@@ -41,7 +42,6 @@ export default function Home() {
           description: HOME_DESCRIPTION,
         })}
       />
-      <BreadcrumbList />
       <Navigation />
       <HeroSection />
       <HomepageFaq />

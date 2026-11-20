@@ -228,10 +228,6 @@ export function renderProject(project) {
 ${project.lead_name ? `<meta property="article:author" content="${escapeHtml(project.lead_name)}" />` : ""}
 ${project.created_at ? `<meta property="article:published_time" content="${escapeHtml(project.created_at)}" />` : ""}
 
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet" />
-
 <script type="application/ld+json">${jsonScript(ld)}</script>
 
 <style>

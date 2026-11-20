@@ -183,10 +183,12 @@ export function Navigation() {
               </button>
               <div
                 role="menu"
+                aria-hidden={!isMoreOpen}
+                inert={!isMoreOpen ? true : undefined}
                 className={`absolute right-0 top-full mt-3 w-48 rounded-xl border border-foreground/10 bg-background/95 p-1.5 backdrop-blur-xl shadow-xl transition-all duration-200 origin-top-right ${
                   isMoreOpen
                     ? "opacity-100 translate-y-0 pointer-events-auto"
-                    : "opacity-0 -translate-y-1 pointer-events-none"
+                    : "opacity-0 -translate-y-1 pointer-events-none invisible"
                 }`}
               >
                 {moreLinks.map((link) => (

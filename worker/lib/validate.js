@@ -150,14 +150,17 @@ export function asInt(value, { min = null, max = null, fallback = null } = {}) {
 }
 
 /**
+ * @typedef {{ok: true, body: Record<string, any>, status?: number, error?: string} | {ok: false, status: number, error: string, body?: Record<string, any>}} ParsedBody
+ */
+
+/**
  * Read and parse a request body, enforcing the 100 KiB cap.
  *
  * Supports `application/json` (the API contract) and, as a convenience,
  * `application/x-www-form-urlencoded` form posts.
  *
  * @param {Request} request
- * @returns {Promise<{ok: true, body: Record<string, unknown>}
- *   | {ok: false, status: number, error: string}>}
+ * @returns {Promise<ParsedBody>}
  */
 export async function readBody(request) {
   const contentType = (request.headers.get("content-type") || "").toLowerCase();
@@ -173,14 +176,16 @@ export async function readBody(request) {
     return { ok: false, status: 400, error: "invalid_body" };
   }
 
-  // Guard against a missing/understated Content-Length header.
-  if (text.length > MAX_BODY_BYTES) {
+  // Guard against a missing/understated Content-Length header using actual byte length.
+  const byteLength = new TextEncoder().encode(text).length;
+  if (byteLength > MAX_BODY_BYTES) {
     return { ok: false, status: 413, error: "payload_too_large" };
   }
   if (!text) return { ok: true, body: {} };
 
   try {
     if (contentType.includes("application/x-www-form-urlencoded")) {
+      /** @type {Record<string, any>} */
       const body = {};
       for (const [key, value] of new URLSearchParams(text)) body[key] = value;
       return { ok: true, body };

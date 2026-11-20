@@ -65,25 +65,33 @@ function decodeJsonSegment(segment) {
  * Fetch (and cache) the team's JWKS.
  *
  * @param {string} teamDomain Normalised origin, e.g. https://team.cloudflareaccess.com
+ * @param {boolean} [forceRefetch=false]
  * @returns {Promise<object[]|null>}
  */
-async function getJwks(teamDomain) {
+async function getJwks(teamDomain, forceRefetch = false) {
   const url = `${teamDomain}/cdn-cgi/access/certs`;
   const now = Date.now();
 
-  if (jwksCache.url === url && jwksCache.keys && jwksCache.expiresAt > now) {
+  if (!forceRefetch && jwksCache.url === url && jwksCache.keys && jwksCache.expiresAt > now) {
     return jwksCache.keys;
   }
 
-  const res = await fetch(url, { cf: { cacheTtl: 3600, cacheEverything: true } });
-  if (!res.ok) return null;
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(5000),
+      cf: { cacheTtl: 3600, cacheEverything: true },
+    });
+    if (!res.ok) return null;
 
-  const data = await res.json();
-  const keys = Array.isArray(data?.keys) ? data.keys : null;
-  if (!keys || !keys.length) return null;
+    const data = await res.json();
+    const keys = Array.isArray(data?.keys) ? data.keys : null;
+    if (!keys || !keys.length) return null;
 
-  jwksCache = { url, keys, expiresAt: now + JWKS_TTL_MS };
-  return keys;
+    jwksCache = { url, keys, expiresAt: now + JWKS_TTL_MS };
+    return keys;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -112,7 +120,7 @@ async function verifySignature(header, payload, signature, jwk) {
  * Verify a Cloudflare Access assertion from the incoming request.
  *
  * @param {Request} request
- * @param {Record<string, string|undefined>} env
+ * @param {{ACCESS_TEAM_DOMAIN?: string, ACCESS_AUD?: string, [key: string]: any}} env
  * @returns {Promise<{ok: true, email: string, service?: boolean} | {ok: false, reason: string}>}
  */
 export async function verifyAccess(request, env) {
@@ -151,11 +159,20 @@ export async function verifyAccess(request, env) {
   }
   if (!keys) return { ok: false, reason: "jwks_unavailable" };
 
-  const jwk = header.kid
+  let jwk = header.kid
     ? keys.find((k) => k.kid === header.kid)
     : keys.length === 1
       ? keys[0]
       : null;
+
+  // Key rotation recovery: if header.kid is unknown, cache might be stale. Refetch once.
+  if (!jwk && header.kid) {
+    keys = await getJwks(teamDomain, true);
+    if (keys) {
+      jwk = keys.find((k) => k.kid === header.kid) || null;
+    }
+  }
+
   if (!jwk) return { ok: false, reason: "unknown_key" };
 
   let signatureValid = false;

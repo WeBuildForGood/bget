@@ -8,19 +8,22 @@
  *
  * SAFETY
  * ------
- * This script is intentionally boring to run by accident:
+ * This script is intentionally safe against accidental execution:
  *
  *   * It refuses to do anything without an explicit `--yes` flag.
- *   * It targets REMOTE by default (the live `buildforgood-prod` database).
- *     Pass `--local` to run against local miniflare D1 state instead.
- *   * Both seed files are idempotent (explicit ids + INSERT OR REPLACE), so
- *     running it twice is safe and converges to the same rows.
+ *   * It targets LOCAL by default (miniflare D1 state via `DB`).
+ *   * Targeting remote requires the explicit `--remote` flag.
+ *   * Targeting the live production database (`buildforgood-prod`) requires both
+ *     `--remote --db buildforgood-prod` AND `--confirm-production`.
+ *   * Both seed files use `INSERT OR IGNORE`, so existing user records are
+ *     never deleted or overwritten.
  *
  * USAGE
  * -----
- *   node scripts/seed.mjs --yes                         # remote buildforgood-prod
- *   node scripts/seed.mjs --yes --db buildforgood-prod
- *   node scripts/seed.mjs --yes --local                 # local miniflare only
+ *   node scripts/seed.mjs --yes                         # local miniflare (DB)
+ *   node scripts/seed.mjs --yes --local                 # local miniflare (DB)
+ *   node scripts/seed.mjs --yes --remote                # remote buildforgood-staging
+ *   node scripts/seed.mjs --yes --remote --db buildforgood-prod --confirm-production
  *   node scripts/seed.mjs                               # prints plan, exits 1
  *
  * The integrator runs this; nothing here executes wrangler commands until
@@ -43,12 +46,13 @@ const SEED_FILES = [
 
 /** Parse argv into a simple options object. */
 function parseArgs(argv) {
-  const opts = { yes: false, local: false, db: "buildforgood-prod", help: false };
+  const opts = { yes: false, local: true, remote: false, db: "DB", confirmProduction: false, help: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--yes" || arg === "-y") opts.yes = true;
-    else if (arg === "--local") opts.local = true;
-    else if (arg === "--remote") opts.local = false;
+    else if (arg === "--local") { opts.local = true; opts.remote = false; }
+    else if (arg === "--remote") { opts.local = false; opts.remote = true; }
+    else if (arg === "--confirm-production") opts.confirmProduction = true;
     else if (arg === "--help" || arg === "-h") opts.help = true;
     else if (arg === "--db") {
       const value = argv[i + 1];
@@ -59,6 +63,15 @@ function parseArgs(argv) {
       opts.db = arg.slice("--db=".length);
     } else {
       fail(`unknown argument: ${arg}`);
+    }
+  }
+
+  if (opts.remote) {
+    if (opts.db === "DB") {
+      opts.db = "buildforgood-staging";
+    }
+    if (opts.db === "buildforgood-prod" && !opts.confirmProduction) {
+      fail("Targeting production requires explicit '--confirm-production' flag to prevent accidental modification of production data.");
     }
   }
   return opts;
@@ -204,14 +217,15 @@ function usage() {
     [
       "Build For Good — seed runner",
       "",
-      "  node scripts/seed.mjs --yes [--db buildforgood-prod] [--local]",
+      "  node scripts/seed.mjs --yes [--local] [--remote] [--db <name>] [--confirm-production]",
       "",
-      "  --yes      required; confirms you want to write to the database",
-      "  --db       D1 database name (default: buildforgood-prod)",
-      "  --local    target local miniflare state instead of remote",
-      "  --remote   target remote (default)",
+      "  --yes                 required; confirms you want to write to the database",
+      "  --local               target local miniflare state (default: database DB)",
+      "  --remote              target remote (default database: buildforgood-staging)",
+      "  --db <name>           D1 database name",
+      "  --confirm-production  required when targeting buildforgood-prod",
       "",
-      "Both seed files are idempotent. Without --yes this script writes nothing.",
+      "Both seed files use INSERT OR IGNORE. Without --yes this script writes nothing.",
     ].join("\n"),
   );
 }

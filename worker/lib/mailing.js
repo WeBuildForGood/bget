@@ -26,7 +26,7 @@ const BATCH_SIZE = 50;
  * Send one email via Resend to a single recipient.
  * Returns true on success, false otherwise (best-effort, never throws).
  *
- * @param {Record<string, string|undefined>} env
+ * @param {{RESEND_API_KEY?: string, NOTIFY_FROM?: string, [key: string]: any}} env
  * @param {{to: string, subject: string, html_body?: string, text_body?: string}} opts
  * @returns {Promise<boolean>}
  */
@@ -39,6 +39,7 @@ async function resendOne(env, { to, subject, html_body, text_body }) {
   try {
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
+      signal: AbortSignal.timeout(5000),
       headers: {
         authorization: `Bearer ${apiKey}`,
         "content-type": "application/json",
@@ -61,7 +62,7 @@ async function resendOne(env, { to, subject, html_body, text_body }) {
  * one exported function makes the wire contract unit-testable, so a future
  * rename cannot silently turn every send into a 422.
  *
- * @param {Record<string, string|undefined>} env
+ * @param {{DB?: D1Database, RESEND_API_KEY?: string, NOTIFY_FROM?: string, [key: string]: any}} env
  * @param {{to: string, subject: string, html_body?: string, text_body?: string}} opts
  * @returns {{from: string, to: string[], subject: string, html?: string, text?: string}}
  */
@@ -83,20 +84,20 @@ export function buildResendPayload(env, { to, subject, html_body, text_body }) {
  * Creates the row only if the table exists (e.g. migration not run yet).
  * Returns true if the log row was written, false otherwise.
  *
- * @param {Record<string, unknown>} env
+ * @param {{DB?: D1Database, [key: string]: any}} env
  * @param {number|null} subscriberId
  * @param {string} subject
  * @param {string} bodyHtml
  * @param {string} sentAt
  * @returns {Promise<boolean>}
  */
-async function logSend(env, subscriberId, subject, bodyHtml, sentAt) {
+export async function logSend(env, subscriberId, subject, bodyHtml, sentAt) {
   if (!env.DB) return false;
   try {
     await env.DB.prepare(
       `INSERT INTO mail_sends (subscriber_id, subject, html_body, sent_at)
        VALUES (?, ?, ?, ?)`,
-    ).run(subscriberId, subject, bodyHtml, sentAt);
+    ).bind(subscriberId, subject, bodyHtml, sentAt).run();
     return true;
   } catch (err) {
     // Table may not exist yet; ignore gracefully.
@@ -108,7 +109,7 @@ async function logSend(env, subscriberId, subject, bodyHtml, sentAt) {
 /**
  * Count active subscribers from D1.
  *
- * @param {Record<string, unknown>} env
+ * @param {{DB?: D1Database, [key: string]: any}} env
  * @returns {Promise<number>}
  */
 async function countActiveSubscribers(env) {
@@ -131,7 +132,7 @@ async function countActiveSubscribers(env) {
  * `mail_sends` row has `subscriber_id = NULL` because the recipient may not be
  * on the mailing list at all.
  *
- * @param {Record<string, string|undefined>} env
+ * @param {{DB?: D1Database, RESEND_API_KEY?: string, NOTIFY_FROM?: string, [key: string]: any}} env
  * @param {{to: string, subject: string, html_body?: string, text_body?: string}} opts
  * @returns {Promise<boolean>}
  */
@@ -160,7 +161,7 @@ export async function sendOne(
  * - Every individual send is best-effort; failures are logged but do not throw.
  * - Each send is logged to `mail_sends`.
  *
- * @param {Record<string, unknown>} env
+ * @param {{DB?: D1Database, [key: string]: any}} env
  * @param {{subject: string, html_body: string, text_body?: string}} params
  * @param {{onProgress?: (sent: number, total: number) => void}=} options
  * @returns {Promise<{totalSent: number, totalFailed: number, totalActive: number}>}
@@ -193,14 +194,14 @@ export async function sendToAll(env, params, options = {}) {
 
     for (const sub of rows) {
       const ok = await resendOne(env, {
-        to: sub.email,
+        to: String(sub.email || ""),
         subject,
         html_body,
         text_body,
       });
       await logSend(
         env,
-        sub.id,
+        typeof sub.id === "number" ? sub.id : null,
         subject,
         html_body || text_body || "",
         new Date().toISOString(),
@@ -222,7 +223,7 @@ export async function sendToAll(env, params, options = {}) {
  * Best-effort acknowledgement that a subscriber joined the list. Thin wrapper
  * over notify.js#sendConfirmation. No-op without env config.
  *
- * @param {Record<string, string|undefined>} env
+ * @param {{DB?: D1Database, RESEND_API_KEY?: string, NOTIFY_FROM?: string, [key: string]: any}} env
  * @param {ExecutionContext} ctx
  * @param {{email?: string, type: string}} opts
  */

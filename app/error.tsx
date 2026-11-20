@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/landing/navigation";
 import { FooterSection } from "@/components/landing/footer-section";
@@ -24,9 +24,12 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const alertRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
-    // Surface the failure for client-side diagnostics/observability.
+    // Surface the failure for client-side diagnostics/observability and focus for screen readers.
     console.error(error);
+    alertRef.current?.focus();
   }, [error]);
 
   return (
@@ -34,8 +37,10 @@ export default function Error({
       <Navigation />
 
       <section
+        ref={alertRef}
         role="alert"
-        className="relative flex flex-1 items-center overflow-hidden border-b border-foreground/10 pt-40 pb-24 lg:pt-52 lg:pb-32"
+        tabIndex={-1}
+        className="relative flex flex-1 items-center overflow-hidden border-b border-foreground/10 pt-40 pb-24 lg:pt-52 lg:pb-32 outline-none"
       >
         <DecorativeBackdrop variant="grid" />
         <OrbitMark className="pointer-events-none absolute -bottom-24 -left-24 hidden h-[420px] w-[420px] text-foreground opacity-[0.5] lg:block" />

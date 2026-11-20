@@ -52,6 +52,10 @@
 # Caching
 # ---------------------------------------------------------------------------
 
+# Default HTML and document caching - short cache with revalidation
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+
 # Next.js hashed build output is content-addressed and safe to cache forever.
 /_next/static/*
   Cache-Control: public, max-age=31536000, immutable
@@ -63,6 +67,10 @@
 # Site imagery.
 /images/*
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+# HTML pages
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
 
 # Root-level raster/vector assets (icons, OG image, placeholders).
 /*.png

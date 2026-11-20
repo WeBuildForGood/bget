@@ -4,16 +4,16 @@
 -- 0001_init.sql (including any concurrently added `problems.slug`) is
 -- referenced, so this file is safe to apply before or after that change.
 --
--- Idempotency: every row uses an explicit `id` with `INSERT OR REPLACE`, so
--- running this file any number of times converges to exactly these six rows.
--- `created_at` and `reviewed_at` are pinned to fixed values so re-runs do not
--- shift the ordering or timestamps.
+-- Idempotency: every row uses an explicit `id` with `INSERT OR IGNORE`, so
+-- running this file seeds initial rows without ever overwriting or deleting
+-- conflicting real user data. `created_at` and `reviewed_at` are pinned so
+-- ordering and timestamps are deterministic.
 --
 -- All six rows are `visibility = 'public'` and reviewed (`status` is either
 -- `framed` or `active`). Content is deliberately qualitative: no invented
 -- statistics are presented as fact.
 
-INSERT OR REPLACE INTO problems
+INSERT OR IGNORE INTO problems
   (id, created_at, title, description, submitter_name, location, affected,
    tried, success_looks_like, why_bget, contribution, visibility, status, reviewed_at)
 VALUES

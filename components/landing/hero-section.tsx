@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Reveal } from "@/components/motion/reveal";
+import Link from "next/link";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { usePublicMetrics, formatMetric } from "./use-public-metrics";
 
@@ -45,57 +45,76 @@ function colourAt(i: number, length: number) {
 /**
  * Blur + colour reveal for the rotating hero word. Each letter fades/blurs in on
  * a stagger, painted with a gradient that shifts across the word; once the word
- * has settled every letter eases back to white.
+ * has settled every letter eases back to crisp white.
  */
 function BlurWord({ word, reducedMotion }: { word: string; reducedMotion: boolean }) {
   const letters = word.split("");
-  const STAGGER = 45; // ms between letters
-  const DURATION = 500; // ms per-letter blur/opacity fade
-  const HOLD = STAGGER * letters.length + DURATION + 200; // ms before colour fades out
+  const STAGGER = 40; // ms between letters
+  const DURATION = 400; // ms per-letter blur/opacity fade
+  const HOLD = STAGGER * letters.length + DURATION + 150; // ms before colour settles to white
 
-  const [states, setStates] = useState(() => letters.map(() => ({ opacity: 0, blur: 18 })));
-  const [coloured, setColoured] = useState(true);
+  const [states, setStates] = useState(() =>
+    letters.map(() => ({ opacity: reducedMotion ? 1 : 0, blur: reducedMotion ? 0 : 16 }))
+  );
+  const [coloured, setColoured] = useState(!reducedMotion);
 
   useEffect(() => {
-    if (reducedMotion) return;
+    if (reducedMotion) {
+      setStates(letters.map(() => ({ opacity: 1, blur: 0 })));
+      setColoured(false);
+      return;
+    }
 
-    setStates(letters.map(() => ({ opacity: 0, blur: 18 })));
+    setStates(letters.map(() => ({ opacity: 0, blur: 16 })));
     setColoured(true);
 
-    const frames: number[] = [];
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    let rafId: number | null = null;
+    let start: number | null = null;
+    const totalDuration = STAGGER * letters.length + DURATION;
 
-    letters.forEach((_, i) => {
-      const timer = setTimeout(() => {
-        const start = performance.now();
-        const tick = (now: number) => {
-          const progress = Math.min((now - start) / DURATION, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          setStates((prev) => {
-            const next = prev.slice();
-            next[i] = { opacity: eased, blur: 18 * (1 - eased) };
-            return next;
-          });
-          if (progress < 1) frames.push(requestAnimationFrame(tick));
-        };
-        frames.push(requestAnimationFrame(tick));
-      }, i * STAGGER);
-      timers.push(timer);
-    });
+    const tick = (now: number) => {
+      if (start === null) start = now;
+      const elapsed = now - start;
 
-    timers.push(setTimeout(() => setColoured(false), HOLD));
+      const nextStates = letters.map((_, i) => {
+        const letterOffset = i * STAGGER;
+        if (elapsed < letterOffset) {
+          return { opacity: 0, blur: 16 };
+        }
+        const letterElapsed = elapsed - letterOffset;
+        if (letterElapsed >= DURATION) {
+          return { opacity: 1, blur: 0 };
+        }
+        const progress = letterElapsed / DURATION;
+        const eased = 1 - Math.pow(1 - progress, 3);
+        return { opacity: eased, blur: 16 * (1 - eased) };
+      });
+
+      setStates(nextStates);
+
+      if (elapsed < totalDuration) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+
+    const colourTimer = setTimeout(() => {
+      setColoured(false);
+    }, HOLD);
 
     return () => {
-      frames.forEach(cancelAnimationFrame);
-      timers.forEach(clearTimeout);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      clearTimeout(colourTimer);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word, reducedMotion]);
 
   return (
     <span aria-label={word} className="inline-block">
       {letters.map((char, i) => {
-        const state = reducedMotion ? { opacity: 1, blur: 0 } : states[i] ?? { opacity: 0, blur: 18 };
+        const state = reducedMotion
+          ? { opacity: 1, blur: 0 }
+          : states[i] ?? { opacity: 1, blur: 0 };
         return (
           <span
             key={`${char}-${i}`}
@@ -105,7 +124,7 @@ function BlurWord({ word, reducedMotion }: { word: string; reducedMotion: boolea
               opacity: state.opacity,
               filter: state.blur ? `blur(${state.blur}px)` : "none",
               color: !reducedMotion && coloured ? colourAt(i, letters.length) : "white",
-              transition: "color 0.4s ease",
+              transition: "color 0.5s ease-out",
             }}
           >
             {char}
@@ -117,18 +136,19 @@ function BlurWord({ word, reducedMotion }: { word: string; reducedMotion: boolea
 }
 
 export function HeroSection() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      : false
+  );
   const { metrics, status: metricsStatus } = usePublicMetrics();
-  // The hero background video is by far the heaviest asset on the page, so it is
-  // not fetched during the critical path. We show a lightweight poster image
-  // immediately and only pull the video down once the browser is idle.
   const [videoReady, setVideoReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    setIsVisible(true);
+    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -144,15 +164,12 @@ export function HeroSection() {
     if (reducedMotion) return;
     const interval = setInterval(() => {
       setWordIndex((prev) => (prev + 1) % words.length);
-    }, 2500);
+    }, 3200);
     return () => clearInterval(interval);
   }, [reducedMotion]);
 
   // Defer loading the hero video until the window `load` event has fired and the
-  // main thread is idle — i.e. strictly after the LCP element has painted. A
-  // hard timeout caps the wait so the video still starts on slow connections.
-  // Users who prefer reduced motion never download it at all; they just see the
-  // poster, which keeps first paint cheap on every device.
+  // main thread is idle — i.e. strictly after the LCP element has painted.
   useEffect(() => {
     if (typeof window === "undefined" || reducedMotion) return;
     const w = window as Window & {
@@ -177,7 +194,6 @@ export function HeroSection() {
       start();
     } else {
       window.addEventListener("load", start, { once: true });
-      // Safety net: never wait more than 3.5s for `load` before starting.
       capId = setTimeout(start, 3500);
     }
 
@@ -197,9 +213,7 @@ export function HeroSection() {
     if (played && typeof played.catch === "function") played.catch(() => {});
   }, [videoReady]);
 
-  // Real, aggregate-only metrics from `/api/metrics` (shared, deduped fetch).
-  // While the request is in flight we show "…"; if it fails, `formatMetric`
-  // yields "—". We never print a fabricated number.
+  // Real aggregate-only metrics from `/api/metrics`.
   const heroStats: HeroStat[] = [
     {
       value:
@@ -207,14 +221,14 @@ export function HeroSection() {
           ? "…"
           : formatMetric(metrics?.problems_public_open),
       label: "problems to solve",
-      mobileLabel: "problems to solve",
+      mobileLabel: "to solve",
     },
     {
       value:
         metricsStatus === "loading"
           ? "…"
           : formatMetric(metrics?.projects_approved),
-      label: "projects",
+      label: "projects active",
       mobileLabel: "projects",
     },
     {
@@ -229,15 +243,17 @@ export function HeroSection() {
 
   return (
     <section
-      // `100svh` tracks the *smallest* viewport (browser chrome shown), so the
-      // hero never hides its bottom row behind mobile browser UI. The inline
-      // declaration is ignored — falling back to the `min-h-screen` class
-      // (100vh) — on engines that predate `svh` units.
       style={{ minHeight: "100svh" }}
-      className="relative min-h-screen flex flex-col overflow-hidden bg-black pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+      className="relative min-h-screen flex flex-col justify-between overflow-hidden bg-black pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >
-      {/* Background video */}
-      <div className="absolute inset-0 z-0">
+      <noscript>
+        <style>{`
+          .hero-animate { opacity: 1 !important; transform: none !important; }
+        `}</style>
+      </noscript>
+
+      {/* Background video & poster */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <video
           ref={videoRef}
           autoPlay
@@ -249,188 +265,185 @@ export function HeroSection() {
           width={1280}
           height={720}
           aria-hidden="true"
-          className="w-full h-full object-cover object-center opacity-80"
+          className="w-full h-full object-cover object-[70%_center] sm:object-center opacity-75 lg:opacity-85"
         >
           {videoReady && <source src="/images/hero-bg.mp4" type="video/mp4" />}
         </video>
-        {/* Subtle overlay to ensure text readability on the left */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+
+        {/* Readability gradients: full veil on mobile, subtle directional vignette on desktop */}
+        <div className="absolute inset-0 bg-black/60 lg:bg-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/80 lg:hidden" />
+        <div className="hidden lg:block absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-black/20" />
+        <div className="hidden lg:block absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/85" />
       </div>
 
-      {/* Subtle grid lines */}
-      <div className="absolute inset-0 z-[2] overflow-hidden pointer-events-none opacity-20">
-        {[...Array(8)].map((_, i) => (
-          <div
-            key={`h-${i}`}
-            className="absolute h-px bg-white/10"
-            style={{
-              top: `${12.5 * (i + 1)}%`,
-              left: 0,
-              right: 0,
-            }}
-          />
-        ))}
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={`v-${i}`}
-            className="absolute w-px bg-white/10"
-            style={{
-              left: `${8.33 * (i + 1)}%`,
-              top: 0,
-              bottom: 0,
-            }}
-          />
-        ))}
-      </div>
+      {/* Subtle architectural grid lines */}
+      <div
+        className="absolute inset-0 z-[2] pointer-events-none opacity-[0.12]"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(255, 255, 255, 0.25) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255, 255, 255, 0.25) 1px, transparent 1px)
+          `,
+          backgroundSize: "80px 80px",
+          maskImage: "radial-gradient(ellipse at 50% 50%, black 40%, transparent 85%)",
+          WebkitMaskImage: "radial-gradient(ellipse at 50% 50%, black 40%, transparent 85%)",
+        }}
+        aria-hidden="true"
+      />
 
-      {/*
-        One layout tree, two compositions:
-        · Mobile (<lg): a full-height column spread top-to-bottom — eyebrow +
-          headline pinned high, stat bar + scroll cue pinned low — so there is
-          never a dead gap under the content.
-        · Desktop (lg+): the headline block is centred and the stats / scroll cue
-          float above the bottom edge.
-        There is deliberately a single <h1>: the mobile-only stat bar and the
-        desktop-only floating stats are separate, but the heading itself is not
-        duplicated (which would create a second, hidden H1 for crawlers).
-      */}
-      <div className="relative z-10 flex flex-1 w-full max-w-[1400px] mx-auto flex-col justify-between px-6 pt-16 pb-8 lg:justify-center lg:px-12 lg:py-40">
-        {/* Eyebrow + headline + description (shared) */}
-        <div className="w-full lg:max-w-[55%]">
-          <Reveal y={14} duration={650}>
-            <span className="inline-flex items-center gap-3 font-mono text-[11px] uppercase leading-relaxed tracking-[0.16em] text-white/60 lg:text-sm lg:normal-case lg:tracking-normal">
-              <span className="h-px w-6 shrink-0 bg-white/30 lg:w-8" />
+      {/* Main hero inner container */}
+      <div className="relative z-10 flex flex-1 w-full max-w-[1400px] mx-auto flex-col justify-between px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-6 lg:pt-32 lg:pb-8">
+        
+        {/* Main Content (Vertically centered within available space, never overlapping bottom stats) */}
+        <div className="w-full lg:max-w-[65%] xl:max-w-[58%] my-auto py-2 sm:py-4 lg:py-6">
+          
+          {/* Eyebrow */}
+          <div
+            className={`hero-animate transition-all duration-700 ease-out ${
+              mounted || reducedMotion ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+            }`}
+          >
+            <span className="inline-flex items-center gap-3 font-mono text-xs sm:text-sm text-white/70 tracking-wider">
+              <span className="h-px w-6 sm:w-8 shrink-0 bg-white/40" />
               <span>A global community turning problems into collective action</span>
             </span>
-          </Reveal>
+          </div>
 
-          <Reveal y={14} duration={650}>
-            <p className="mt-2 text-left text-white/80 leading-relaxed text-[clamp(0.875rem,4vw,1.125rem)] lg:max-w-[55%] lg:mt-4 lg:text-[clamp(1rem,2.5vw,1.125rem)] break-words">
-              We bring exceptional people together to solve meaningful problems — not just software, but health, energy, water, education, and climate challenges that matter to real communities.
-            </p>
-          </Reveal>
-
-          <Reveal delay={90} y={24} duration={850}>
-            <h1 className="mt-4 text-left font-display text-[clamp(1.75rem,8.5vw,2.5rem)] leading-[1.02] tracking-tight text-white lg:mt-4 lg:text-[clamp(2rem,6vw,7rem)] lg:leading-[0.92] break-words hyphens-auto">
-              <span className="block">Become more capable,</span>
-              <span className="block">
+          {/* Headline (H1) with rotating BlurWord */}
+          <div
+            className={`hero-animate transition-all duration-700 delay-100 ease-out ${
+              mounted || reducedMotion ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+            }`}
+          >
+            <h1 className="mt-3.5 sm:mt-4 text-left font-display text-[clamp(1.75rem,7vw,2.5rem)] lg:text-[clamp(2.75rem,4.4vw,4.75rem)] font-bold tracking-tight text-white leading-[1.05] lg:leading-[0.98]">
+              <span className="block sm:whitespace-nowrap">Become more capable,</span>
+              <span className="block sm:whitespace-nowrap mt-1 lg:mt-2">
                 never less{" "}
-                <span className="relative inline-block">
-                  <BlurWord word={words[wordIndex]} reducedMotion={reducedMotion} />
+                <span className="relative inline-block text-white">
+                  <BlurWord
+                    key={words[wordIndex]}
+                    word={words[wordIndex]}
+                    reducedMotion={reducedMotion}
+                  />
                 </span>
               </span>
             </h1>
-          </Reveal>
+          </div>
 
-          {/* Desktop CTA buttons */}
-          <Reveal delay={180} y={16} duration={600} className="hidden lg:block">
-            <div className="flex flex-col gap-3 w-full max-w-xs">
-              <button
-                onClick={() => window.location.href = "/membership"}
-                className="w-full py-4 px-6 bg-white text-black font-medium text-sm rounded-lg transition-all hover:bg-white/90 active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                Apply to join
-                <ArrowRight className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => window.location.href = "/problems"}
-                className="w-full py-4 px-6 border border-white/30 text-white font-medium text-sm rounded-lg transition-all hover:bg-white/5 hover:border-white/50 active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                Bring a problem
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          </Reveal>
+          {/* Subtitle description paragraph placed directly under H1 */}
+          <div
+            className={`hero-animate transition-all duration-700 delay-200 ease-out ${
+              mounted || reducedMotion ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+            }`}
+          >
+            <p className="mt-4 sm:mt-5 text-left text-white/85 leading-relaxed text-sm sm:text-base lg:text-lg max-w-xl">
+              We bring exceptional people together to solve meaningful problems — not just
+              software, but health, energy, water, education, and climate challenges that
+              matter to real communities.
+            </p>
+          </div>
 
-          {/* Mobile CTA buttons */}
-          <Reveal delay={180} y={16} duration={600} className="block lg:hidden mt-6">
-            <div className="flex flex-col gap-3 w-full sm:max-w-xs">
-              <button
-                onClick={() => window.location.href = "/membership"}
-                className="w-full py-4 px-6 bg-white text-black font-medium text-sm rounded-lg transition-all hover:bg-white/90 active:scale-[0.98] flex items-center justify-center gap-2"
+          {/* Action buttons (responsive single block: stacked on mobile, row on tablet/desktop) */}
+          <div
+            className={`hero-animate transition-all duration-700 delay-300 ease-out ${
+              mounted || reducedMotion ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+            }`}
+          >
+            <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+              <Link
+                href="/membership"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-semibold text-sm bg-white text-black transition-all duration-200 hover:bg-neutral-100 hover:shadow-[0_0_24px_rgba(255,255,255,0.22)] active:scale-[0.98] group"
               >
-                Apply to join
-                <ArrowRight className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => window.location.href = "/problems"}
-                className="w-full py-4 px-6 border border-white/30 text-white font-medium text-sm rounded-lg transition-all hover:bg-white/5 hover:border-white/50 active:scale-[0.98] flex items-center justify-center gap-2"
+                <span>Apply to join</span>
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </Link>
+
+              <Link
+                href="/problems"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-medium text-sm border border-white/20 bg-white/[0.05] backdrop-blur-md text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 active:scale-[0.98] group"
               >
-                Bring a problem
-                <ArrowRight className="h-4 w-4" />
-              </button>
+                <span>Bring a problem</span>
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </Link>
             </div>
-          </Reveal>
+          </div>
         </div>
 
-        {/* Mobile-only bottom row: stat bar + scroll cue, anchored to the bottom
-            of the hero by the parent's `justify-between`. */}
-        <div className="lg:hidden mt-6">
-          <Reveal delay={500} y={16}>
-            <dl className="grid grid-cols-3 border-y border-white/10 divide-x divide-white/10 min-w-0">
+        {/* Mobile / Tablet Stats & Scroll Card */}
+        <div
+          className={`hero-animate lg:hidden w-full mt-6 sm:mt-8 transition-all duration-700 delay-400 ease-out ${
+            mounted || reducedMotion ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+          }`}
+        >
+          <div className="rounded-2xl border border-white/15 bg-white/[0.04] backdrop-blur-md p-3.5 sm:p-4 shadow-lg">
+            <dl className="grid grid-cols-3 divide-x divide-white/15 text-center min-w-0">
               {heroStats.map((stat, i) => (
                 <div
                   key={`${stat.label}-${i}`}
-                  className="flex flex-col items-center gap-1 px-1 py-2.5 text-center min-w-0"
+                  className="flex flex-col items-center gap-1 px-1 min-w-0"
                 >
-                  <dt className="font-display text-lg sm:text-xl leading-none text-white truncate w-full">{stat.value}</dt>
-                  <dd className="font-mono text-[8px] sm:text-[9px] leading-snug tracking-wide text-white/55 truncate w-full">
+                  <dt className="font-display text-xl sm:text-2xl font-bold leading-tight text-white tabular-nums truncate w-full">
+                    {stat.value}
+                  </dt>
+                  <dd className="font-mono text-[10px] sm:text-xs text-white/70 font-medium tracking-wide uppercase truncate w-full">
                     {stat.mobileLabel}
                   </dd>
                 </div>
               ))}
             </dl>
-          </Reveal>
+          </div>
 
-          <Reveal delay={800} y={12}>
-            <div className="mt-3 flex flex-col items-center gap-2 text-white/40">
-              <ArrowDown className="h-4 w-4 animate-bounce-slow" />
-              <span className="font-mono text-[9px] uppercase tracking-[0.3em]">Scroll</span>
-            </div>
-          </Reveal>
+          {/* Mobile Scroll Indicator */}
+          <div className="mt-3.5 flex justify-center">
+            <a
+              href="#faq"
+              aria-label="Scroll to explore"
+              className="inline-flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors py-1 cursor-pointer"
+            >
+              <ArrowDown className="h-3.5 w-3.5 animate-bounce-slow text-white/50" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/50">Scroll</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Desktop Stats & Scroll Bottom Row (in normal flow — zero risk of overlap!) */}
+        <div
+          className={`hero-animate hidden lg:flex w-full items-center justify-between border-t border-white/15 pt-6 mt-auto transition-all duration-700 delay-400 ease-out ${
+            mounted || reducedMotion ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+          }`}
+        >
+          <div className="flex items-center gap-12 xl:gap-16">
+            {heroStats.map((stat, i) => (
+              <div key={`${stat.label}-${i}`} className="flex flex-col gap-1 text-left">
+                <span className="font-display text-3xl xl:text-4xl font-bold tracking-tight text-white tabular-nums">
+                  {stat.value}
+                </span>
+                <span className="font-mono text-xs text-white/60 tracking-wider uppercase">
+                  {stat.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Scroll Indicator */}
+          <a
+            href="#faq"
+            aria-label="Scroll to learn more"
+            className="group inline-flex items-center gap-2.5 text-white/50 hover:text-white transition-colors duration-300 cursor-pointer"
+          >
+            <span className="font-mono text-xs uppercase tracking-widest text-white/60 group-hover:text-white transition-colors">
+              Scroll
+            </span>
+            <ArrowDown className="h-4 w-4 animate-bounce-slow text-white/60 group-hover:text-white transition-colors" />
+          </a>
         </div>
       </div>
-
-      {/* Desktop-only stats — 3 metrics pinned near the bottom. */}
-      <Reveal
-        delay={500}
-        y={16}
-        className="pointer-events-none absolute inset-x-0 bottom-20 z-10 hidden px-12 lg:block"
-      >
-        <div className="mx-auto flex min-h-[84px] max-w-[1400px] items-center justify-center gap-20">
-          {heroStats.map((stat, i) => (
-            <div
-              key={`${stat.label}-${i}`}
-              className="flex min-w-[140px] flex-col items-center gap-2 text-center"
-            >
-              <span className="font-display text-4xl whitespace-nowrap text-white">
-                {stat.value}
-              </span>
-              <span className="text-xs leading-normal tracking-wide text-white/60">
-                {stat.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Reveal>
-
-      {/* Desktop-only scroll indicator, centred on the bottom edge. */}
-      <Reveal
-        delay={800}
-        y={16}
-        className="pointer-events-none absolute inset-x-0 bottom-6 z-10 hidden justify-center lg:flex"
-      >
-        <div className="flex flex-col items-center gap-2 text-white/40 transition-colors duration-500 hover:text-white/60">
-          <ArrowDown className="h-6 w-6 animate-bounce-slow" />
-          <span className="font-mono text-xs uppercase tracking-widest">Scroll</span>
-        </div>
-      </Reveal>
 
       <style jsx>{`
         @keyframes bounce-slow {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(8px); }
+          50% { transform: translateY(6px); }
         }
         .animate-bounce-slow {
           animation: bounce-slow 2.5s ease-in-out infinite;

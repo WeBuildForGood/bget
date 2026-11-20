@@ -118,6 +118,7 @@ async function deliver(env, payload) {
 
     const res = await fetch(String(env.NOTIFY_WEBHOOK), {
       method: "POST",
+      signal: AbortSignal.timeout(5000),
       headers,
       body,
     });
@@ -128,6 +129,7 @@ async function deliver(env, payload) {
   if (env.RESEND_API_KEY && env.NOTIFY_EMAIL) {
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
+      signal: AbortSignal.timeout(5000),
       headers: {
         authorization: `Bearer ${env.RESEND_API_KEY}`,
         "content-type": "application/json",
@@ -159,6 +161,7 @@ async function deliverConfirmation(env, { email, type }) {
   const label = LABELS[type] || type;
   const res = await fetch(RESEND_ENDPOINT, {
     method: "POST",
+    signal: AbortSignal.timeout(5000),
     headers: {
       authorization: `Bearer ${env.RESEND_API_KEY}`,
       "content-type": "application/json",

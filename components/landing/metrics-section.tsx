@@ -20,9 +20,10 @@ function AnimatedNumber({ end, suffix = "", prefix = "" }: { end: number | null;
   const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
-    // No real value yet — do not animate towards a fabricated target.
     if (end === null) return;
     const target = end;
+    let rafId: number;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !hasAnimated) {
@@ -35,15 +36,20 @@ function AnimatedNumber({ end, suffix = "", prefix = "" }: { end: number | null;
             const eased = 1 - Math.pow(1 - progress, 4);
             setCount(Math.floor(eased * target));
             setIsScrambling(progress < 0.8);
-            if (progress < 1) requestAnimationFrame(animate);
+            if (progress < 1) {
+              rafId = requestAnimationFrame(animate);
+            }
           };
-          requestAnimationFrame(animate);
+          rafId = requestAnimationFrame(animate);
         }
       },
       { threshold: 0.5 }
     );
     if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [end, hasAnimated]);
 
   // Honest empty state: while the value is unknown (loading or request failed)
@@ -231,17 +237,25 @@ function DotGraph({
   );
 }
 
-export function MetricsSection() {
+function UtcClock() {
   const [time, setTime] = useState<Date | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
-  const { metrics, status: metricsStatus } = usePublicMetrics();
-  const sectionRef = useRef<HTMLElement>(null);
-
   useEffect(() => {
     setTime(new Date());
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  return (
+    <span className="text-sm font-mono text-muted-foreground">
+      {time ? `${time.toLocaleTimeString("en-GB", { timeZone: "UTC" })} UTC` : ""}
+    </span>
+  );
+}
+
+export function MetricsSection() {
+  const [isVisible, setIsVisible] = useState(false);
+  const { metrics, status: metricsStatus } = usePublicMetrics();
+  const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -307,11 +321,7 @@ export function MetricsSection() {
                   OFFLINE
                 </span>
               )}
-              <span className="text-sm font-mono text-muted-foreground">
-                {time
-                  ? `${time.toLocaleTimeString("en-GB", { timeZone: "UTC" })} UTC`
-                  : ""}
-              </span>
+              <UtcClock />
             </div>
 
             <h2 className={`text-4xl sm:text-6xl md:text-7xl lg:text-[140px] font-display tracking-tight leading-[0.95] transition-all duration-1000 ${

@@ -30,7 +30,7 @@ export function AsciiScene() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);

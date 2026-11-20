@@ -108,14 +108,14 @@ export async function handleSitemap(env) {
   try {
     const projects = await env.DB.prepare(
       `SELECT slug, updated_at, created_at FROM projects
-        WHERE slug IS NOT NULL AND slug != ''
+        WHERE slug IS NOT NULL AND slug != '' AND status = 'approved'
         ORDER BY id`,
     ).all();
 
     for (const row of projects.results ?? []) {
       entries.push(
         urlEntry({
-          loc: `${origin}/projects/${encodeURIComponent(row.slug)}`,
+          loc: `${origin}/projects/${encodeURIComponent(String(row.slug))}`,
           lastmod: toW3CDate(row.updated_at) ?? toW3CDate(row.created_at),
           changefreq: "monthly",
           priority: "0.8",

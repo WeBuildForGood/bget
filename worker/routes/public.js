@@ -282,7 +282,7 @@ async function listSubscribers(env) {
   return json({
     ok: true,
     subscribers: results ?? [],
-  });
+  }, 200, { "cache-control": "no-store, no-cache, must-revalidate" });
 }
 
 /**
@@ -310,39 +310,39 @@ async function handleSubscribe(request, env, ctx) {
     return json({ ok: false, error: "invalid", fields: ["email"] }, 422);
   }
 
-  // Check for duplicate email (regardless of status) — SILENTLY: a duplicate
-  // only skips the insert/notifications below; the caller sees the exact same
-  // response as for a brand-new address.
-  const duplicate = await env.DB.prepare(
-    `SELECT id FROM subscribers WHERE email = ? LIMIT 1`
-  )
-    .bind(email)
-    .first();
-
-  if (!duplicate) {
+  // Insert if not exists (use INSERT OR IGNORE to avoid race conditions).
+  // A duplicate only skips notifications below; the caller sees the exact same
+  // response as for a brand-new address (prevents enumeration).
+  try {
     const result = await env.DB.prepare(
-      `INSERT INTO subscribers (email, name, source, status)
+      `INSERT OR IGNORE INTO subscribers (email, name, source, status)
        VALUES (?, ?, ?, 'active')`
     )
       .bind(email, name, source)
       .run();
 
-    const id = result.meta?.last_row_id ?? null;
+    const inserted = (result.meta?.changes ?? 0) > 0;
+    if (inserted) {
+      const id = result.meta?.last_row_id ?? null;
 
-    // Notify via webhook/Resend if configured (best-effort)
-    notifySubmission(env, ctx, {
-      type: "subscription",
-      id,
-      summary: `${email} (${source})`,
-      data: { email, name, source },
-    });
-    sendConfirmation(env, ctx, { email, type: "subscription" });
+      // Notify via webhook/Resend if configured (best-effort)
+      notifySubmission(env, ctx, {
+        type: "subscription",
+        id,
+        summary: `${email} (${source})`,
+        data: { email, name, source },
+      });
+      sendConfirmation(env, ctx, { email, type: "subscription" });
 
-    // Mirror the signup to the Navrix core's unified subscribers list.
-    forwardToCore(env, ctx, "/v1/public/subscribe", {
-      email,
-      source: source || "website",
-    });
+      // Mirror the signup to the Navrix core's unified subscribers list.
+      forwardToCore(env, ctx, "/v1/public/subscribe", {
+        email,
+        source: source || "website",
+      });
+    }
+  } catch (err) {
+    console.error("subscribe: insert failed", err);
+    return json({ ok: false, error: "database_error" }, 500);
   }
 
   // ALWAYS generic: 202, no id, no distinction between new and existing.
