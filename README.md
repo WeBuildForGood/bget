@@ -254,64 +254,43 @@ Other scripts (see `package.json`):
 | `npm run build` | `next build` | Static export → `out/` |
 | `npm run preview` | `wrangler dev` | Full site + API, local D1 |
 | `npm run deploy` | `wrangler deploy` | Deploy the built Worker (run `build` first) |
-| `npm test` | `node --test tests/` | Unit tests for `worker/lib/*` (rate limit, slug, validation) |
-| `npm run lint` | `tsc --noEmit` | Type-check (alias of `typecheck`) |
-| `npm run typecheck` | `tsc --noEmit` | Type-check |
+| `npm test` | `node --test tests/` | Unit tests for `worker/lib/*` (rate limit, slug, validation, mailing) |
+| `npm run lint` | `npm run typecheck` | Full project type-check |
+| `npm run typecheck` | `tsc --noEmit && tsc -p tsconfig.worker.json` | Type-check Next.js frontend + Cloudflare Worker edge code |
+| `npm run typecheck:worker` | `tsc -p tsconfig.worker.json` | Type-check Cloudflare Worker edge code only |
 | `npm start` | `next start` | Not used for this static-export Worker deployment |
 
-> **Note:** `npm run lint` and `npm run typecheck` both run `tsc --noEmit`
-> (there is no ESLint setup in this repo). `npm test` runs the zero-dependency
-> unit suite under `tests/` with the Node built-in test runner
-> (`node --test tests/`); it covers the pure helpers in `worker/lib/*.js`
-> (rate limiting, slug generation, input validation). There is no browser/E2E
-> suite.
+> **Note:** `npm run typecheck` validates both Next.js TypeScript files and Worker JavaScript files. `npm test` runs the zero-dependency unit suite under `tests/` with the Node built-in test runner (`node --test tests/`); it covers the pure helpers in `worker/lib/*.js` (rate limiting, slug generation, input validation, mailing payloads).
 
 ---
 
-## 7. Deployment
+## 7. Deployment & Environments
 
 The deploy sequence is always:
 
 ```bash
-npm run build            # produce out/ (static export)
-npx wrangler deploy      # upload assets + worker/index.js  (== npm run deploy)
+NEXT_PUBLIC_SITE_URL="https://buildforgood.world" npm run build   # produce out/ (static export)
+npx wrangler deploy                                               # upload assets + worker/index.js
 ```
 
-`wrangler.toml` sets the custom domains `buildforgood.world` and
-`www.buildforgood.world` (Cloudflare creates the DNS records and certificates
-automatically) and keeps `workers_dev = true`, so the Worker also answers at
-`https://buildforgood.shadownik.workers.dev` (the backup/direct URL).
-
-Manual deploy:
-
+For staging:
 ```bash
-export CLOUDFLARE_ACCOUNT_ID=2eff373f1fc9834a686bfb5982b151b2
-npm run build
-npx wrangler deploy
+NEXT_PUBLIC_SITE_URL="https://staging.buildforgood.world" npm run build
+npx wrangler deploy --env staging                                 # deploys to staging.buildforgood.world
 ```
 
-### CI (`.github/workflows/`)
+`wrangler.toml` enforces `workers_dev = false` and `preview_urls = false` to ensure traffic always enters via authorized custom domains with Cloudflare Access protection.
 
-- **`quality.yml`** — the fast gate on PRs and `main`: `npm ci`,
-  `npm run typecheck`, `npm test`.
-- **`ci.yml`** — job literally named **`test`**: `npm ci` + `npm run build`
-  (the static-export build gate). Branch protection on `main` requires this
-  exact check name.
-- **`test.yml`** — `npm ci`, `npm test`, `npm run typecheck`, `npm run build`,
-  `npm audit --audit-level=moderate`, an `npm outdated` report, a Trivy
-  filesystem scan, and a static-export smoke test (`out/index.html`,
-  `out/404.html`).
-- **`deploy.yml`** — on a push to `main`: `npm ci` → `npm run typecheck` →
-  `npm test` → `npm audit` → `npm run build` → `npx wrangler deploy`, then a
-  post-deploy `/api/health` check and a production smoke test. It also has
-  `--env staging` and `--env preview` deploy jobs, gated on the `staging` branch
-  and on PRs labelled `preview`. `wrangler.toml` currently defines only the
-  production Worker — there are no `[env.staging]` / `[env.preview]` blocks, so
-  those deploys depend on additional environment configuration.
-- **`deploy-preview.yml`** — on PRs to `main`/`staging`: build and
-  `npx wrangler deploy --env preview`, then comment the preview URL on the PR.
+### CI/CD Architecture (`.github/workflows/`)
 
-Required GitHub secret: **`CF_API_TOKEN`** (Workers Scripts + D1 edit).
+- **`ci.yml`** — Canonical pull-request and push gate: `npm ci` → `npm test` → `npm run typecheck` → `npm run build`. Emits the required **`test`** status check expected by branch protection.
+- **`deploy.yml`** — Deployment pipeline: builds `out/` once in the `build` job, uploads it as an artifact, and downloads it in deployment jobs:
+  - `deploy-production` (pushes to `main`): deploys `npx wrangler deploy` to `buildforgood.world`.
+  - `deploy-staging` (pushes to `staging`): deploys `npx wrangler deploy --env staging` to `staging.buildforgood.world` with dedicated `buildforgood-staging` D1 database.
+- **`deploy-preview.yml`** — Automated ephemeral previews on pull requests using `buildforgood-staging`.
+- **`security.yml`** — Nightly automated vulnerability scan running `npm audit` and checking for outdated dependencies.
+
+Required GitHub secret: **`CF_API_TOKEN`** (Cloudflare API token with Workers Scripts and D1 edit permissions).
 
 ### Rollback
 
@@ -357,11 +336,30 @@ Without those secrets the Worker treats Access as unconfigured and returns
 
 ---
 
-## 10. Community docs
+## 10. Community documentation (`docs/`)
 
-The full Build For Good canon (manifesto, values, membership, problem commons,
-activities, governance, branding) lives outside this repo. This site is the
-public-facing expression of it.
+The full Build For Good canon and operating system is unified inside this repository under [`docs/`](docs/):
+
+| Document | Purpose / Scope |
+| --- | --- |
+| [`docs/MANIFESTO.md`](docs/MANIFESTO.md) | The core manifesto, the 12 dimensions of capability, and the founding ethos |
+| [`docs/VALUES.md`](docs/VALUES.md) | Cultural principles, rewarded vs. corrected behaviours |
+| [`docs/PROBLEM-COMMONS.md`](docs/PROBLEM-COMMONS.md) | The Problem Commons loop, submission criteria, and problem lifecycle |
+| [`docs/MEMBERSHIP.md`](docs/MEMBERSHIP.md) | Member criteria, the high-bar filter, selection and onboarding |
+| [`docs/ACTIVITIES.md`](docs/ACTIVITIES.md) | The 5 recurring community rituals (Showcase, Jam, Commons Review, etc.) |
+| [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Stewardship council, decision frameworks, and code of conduct |
+| [`docs/GROWTH.md`](docs/GROWTH.md) | Sustainable member growth, distribution channels, and cohort scaling |
+| [`docs/PEOPLE.md`](docs/PEOPLE.md) | People roster, advisory board, core stewards, and contributor roles |
+| [`docs/PLAN-90-DAYS.md`](docs/PLAN-90-DAYS.md) | The 90-day operational roadmap and milestone milestones |
+| [`docs/RECRUITING.md`](docs/RECRUITING.md) | Outreach strategy for top-tier builders, researchers, and civic leaders |
+| [`docs/SUSTAINABILITY.md`](docs/SUSTAINABILITY.md) | Financial stewardship, grants, sponsorships, and resource independence |
+| [`docs/BRANDING.md`](docs/BRANDING.md) | Brand identity, typography, visual voice, and design language |
+| [`docs/DISCORD.md`](docs/DISCORD.md) | Community Discord channel architecture, roles, and moderation rules |
+| [`docs/OUTREACH_TRACKER.md`](docs/OUTREACH_TRACKER.md) | Direct outreach log and tracking for civic tech founders and researchers |
+| [`docs/templates/`](docs/templates/) | Application, roster, event kit, and welcome message templates |
+| [`docs/templates/outreach/`](docs/templates/outreach/) | Personalized outreach message templates (civic tech leaders, OSS founders) |
+
+Outreach scripts and automation tools live in [`tools/`](tools/).
 
 ---
 
