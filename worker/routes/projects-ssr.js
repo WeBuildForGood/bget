@@ -92,6 +92,7 @@ export async function handleProjects(request, env, ctx, url) {
 
   // 2. Fall back to D1, approved projects only, and server-render the page.
   let project = null;
+  let dbError = false;
   try {
     project = await env.DB.prepare(
       `SELECT ${SSR_FIELDS} FROM projects WHERE slug = ? AND status = 'approved' LIMIT 1`,
@@ -99,10 +100,22 @@ export async function handleProjects(request, env, ctx, url) {
       .bind(slug)
       .first();
   } catch (err) {
+    dbError = true;
     console.error("projects-ssr: D1 query failed", err);
   }
 
-  // 3. Not found (or D1 failed): return the export's 404 document.
+  // A database error must NEVER return or cache a 404 document.
+  if (dbError) {
+    return new Response("Service Temporarily Unavailable", {
+      status: 503,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store, no-cache, must-revalidate",
+      },
+    });
+  }
+
+  // 3. Not found: return the export's 404 document.
   if (!project) return asset;
 
   return htmlResponse(renderProject(project), 200, {

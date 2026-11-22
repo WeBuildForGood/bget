@@ -8,14 +8,13 @@ import { ArrowRight } from "lucide-react";
 export function CtaSection() {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) setIsVisible(true);
       },
-      { threshold: 0.2 }
+      { threshold: 0.1 }
     );
 
     if (sectionRef.current) observer.observe(sectionRef.current);
@@ -24,10 +23,10 @@ export function CtaSection() {
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setMousePosition({
-      x: ((e.clientX - rect.left) / rect.width) * 100,
-      y: ((e.clientY - rect.top) / rect.height) * 100,
-    });
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    e.currentTarget.style.setProperty("--spotlight-x", `${x}%`);
+    e.currentTarget.style.setProperty("--spotlight-y", `${y}%`);
   };
 
   return (
@@ -39,11 +38,11 @@ export function CtaSection() {
           }`}
           onMouseMove={handleMouseMove}
         >
-          {/* Spotlight effect */}
+          {/* Spotlight effect (GPU CSS variables, 0 React re-renders) */}
           <div 
             className="absolute inset-0 opacity-10 pointer-events-none transition-opacity duration-300"
             style={{
-              background: `radial-gradient(600px circle at ${mousePosition.x}% ${mousePosition.y}%, rgba(0,0,0,0.15), transparent 40%)`
+              background: `radial-gradient(600px circle at var(--spotlight-x, 50%) var(--spotlight-y, 50%), rgba(0,0,0,0.15), transparent 40%)`
             }}
           />
           

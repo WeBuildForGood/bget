@@ -251,15 +251,28 @@ export async function handlePublic(request, env, ctx, url) {
  * public footer counter. No personal data crosses the wire.
  */
 async function subscriberCount(env) {
+  if (!env.DB) {
+    return json({ ok: true, count: 0 }, 200, {
+      "cache-control": "no-store, no-cache, must-revalidate",
+    });
+  }
+
   try {
     const row = await env.DB.prepare(
       `SELECT COUNT(*) AS n FROM subscribers WHERE status = 'active'`
     ).first();
-    return json({ ok: true, count: Number(row?.n || 0) });
+    return json(
+      { ok: true, count: Number(row?.n || 0) },
+      200,
+      { "cache-control": "public, max-age=60, stale-while-revalidate=30" },
+    );
   } catch (err) {
-    // Table may not exist yet; report zero rather than failing the page.
     console.error("subscribers: count failed", err);
-    return json({ ok: true, count: 0 });
+    return json(
+      { ok: true, count: 0 },
+      200,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
   }
 }
 
@@ -303,20 +316,26 @@ async function handleSubscribe(request, env, ctx) {
   if (isHoneypot(body)) return json({ ok: true }, 202);
 
   const email = clean(body.email, 254).toLowerCase();
-  const name = clean(body.name, 120) ?? null;
-  const source = clean(body.source, 50) ?? "website";
+  const name = clean(body.name, 120) || null;
+  const source = clean(body.source, 50) || "website";
 
   if (!email || !isEmail(email)) {
     return json({ ok: false, error: "invalid", fields: ["email"] }, 422);
   }
 
-  // Insert if not exists (use INSERT OR IGNORE to avoid race conditions).
+  // Insert or reactivate if existing unsubscribed.
   // A duplicate only skips notifications below; the caller sees the exact same
   // response as for a brand-new address (prevents enumeration).
   try {
     const result = await env.DB.prepare(
-      `INSERT OR IGNORE INTO subscribers (email, name, source, status)
-       VALUES (?, ?, ?, 'active')`
+      `INSERT INTO subscribers (email, name, source, status)
+       VALUES (?, ?, ?, 'active')
+       ON CONFLICT(email) DO UPDATE SET
+         status = 'active',
+         name = COALESCE(excluded.name, subscribers.name),
+         unsubscribed_at = NULL,
+         updated_at = datetime('now')
+       WHERE subscribers.status != 'active'`
     )
       .bind(email, name, source)
       .run();
@@ -342,7 +361,11 @@ async function handleSubscribe(request, env, ctx) {
     }
   } catch (err) {
     console.error("subscribe: insert failed", err);
-    return json({ ok: false, error: "database_error" }, 500);
+    return json(
+      { ok: false, error: "database_error" },
+      500,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
   }
 
   // ALWAYS generic: 202, no id, no distinction between new and existing.
@@ -405,79 +428,131 @@ async function handleUnsubscribe(request, env, ctx) {
 /** GET /api/health -> liveness plus a trivial database probe. */
 async function health(env) {
   let db = "ok";
-  try {
-    await env.DB.prepare("SELECT 1").first();
-  } catch (err) {
-    db = "error";
-    console.error("health: db check failed", err);
+  if (!env.DB) {
+    db = "unconfigured";
+  } else {
+    try {
+      await env.DB.prepare("SELECT 1").first();
+    } catch (err) {
+      db = "error";
+      console.error("health: db check failed", err);
+    }
   }
-  return json({ ok: true, service: "buildforgood", db });
+
+  const ok = db === "ok";
+  return json(
+    { ok, service: "buildforgood", db },
+    ok ? 200 : 503,
+    { "cache-control": "no-store, no-cache, must-revalidate" },
+  );
 }
 
 /** GET /api/stats -> real counts across the public collections. */
 async function stats(env) {
-  const row = await env.DB.prepare(
-    `SELECT
-       (SELECT COUNT(*) FROM applications) AS applications,
-       (SELECT COUNT(*) FROM applications WHERE status='new') AS applications_new,
-       (SELECT COUNT(*) FROM problems) AS problems,
-       (SELECT COUNT(*) FROM problems WHERE visibility='public' AND status IN ('framed','active')) AS problems_public_open,
-       (SELECT COUNT(*) FROM problems WHERE status='solved') AS problems_solved,
-       (SELECT COUNT(*) FROM problems WHERE ${PUBLIC_PROBLEM_WHERE}) AS public_problems,
-       (SELECT COUNT(*) FROM projects) AS projects,
-       (SELECT COUNT(*) FROM projects WHERE status='approved') AS projects_approved,
-       (SELECT COUNT(*) FROM projects WHERE status='approved' AND stage IN ('live','scaled')) AS projects_live,
-       (SELECT COUNT(*) FROM projects WHERE status='approved' AND stage='pilot') AS projects_pilot`,
-  ).first();
+  if (!env.DB) {
+    return json(
+      { ok: false, error: "database_not_configured" },
+      503,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
+  }
 
-  return json({
-    ok: true,
-    applications: Number(row?.applications || 0),
-    applications_total: Number(row?.applications || 0),
-    applications_new: Number(row?.applications_new || 0),
-    problems: Number(row?.problems || 0),
-    problems_total: Number(row?.problems || 0),
-    problems_public_open: Number(row?.problems_public_open || 0),
-    problems_solved: Number(row?.problems_solved || 0),
-    public_problems: Number(row?.public_problems || 0),
-    projects: Number(row?.projects || 0),
-    projects_total: Number(row?.projects || 0),
-    projects_approved: Number(row?.projects_approved || 0),
-    projects_live: Number(row?.projects_live || 0),
-    projects_pilot: Number(row?.projects_pilot || 0),
-  });
+  try {
+    const row = await env.DB.prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM applications) AS applications,
+         (SELECT COUNT(*) FROM applications WHERE status='new') AS applications_new,
+         (SELECT COUNT(*) FROM problems) AS problems,
+         (SELECT COUNT(*) FROM problems WHERE ${PUBLIC_PROBLEM_WHERE}) AS problems_public_open,
+         (SELECT COUNT(*) FROM problems WHERE status='solved') AS problems_solved,
+         (SELECT COUNT(*) FROM projects) AS projects,
+         (SELECT COUNT(*) FROM projects WHERE status='approved') AS projects_approved,
+         (SELECT COUNT(*) FROM projects WHERE status='approved' AND stage IN ('live','scaled')) AS projects_live,
+         (SELECT COUNT(*) FROM projects WHERE status='approved' AND stage='pilot') AS projects_pilot`,
+    ).first();
+
+    const openProblems = Number(row?.problems_public_open || 0);
+
+    return json(
+      {
+        ok: true,
+        applications: Number(row?.applications || 0),
+        applications_total: Number(row?.applications || 0),
+        applications_new: Number(row?.applications_new || 0),
+        problems: Number(row?.problems || 0),
+        problems_total: Number(row?.problems || 0),
+        problems_public_open: openProblems,
+        problems_solved: Number(row?.problems_solved || 0),
+        public_problems: openProblems,
+        projects: Number(row?.projects || 0),
+        projects_total: Number(row?.projects || 0),
+        projects_approved: Number(row?.projects_approved || 0),
+        projects_live: Number(row?.projects_live || 0),
+        projects_pilot: Number(row?.projects_pilot || 0),
+      },
+      200,
+      { "cache-control": "public, max-age=60, stale-while-revalidate=30" },
+    );
+  } catch (err) {
+    console.error("stats: query failed", err);
+    return json(
+      { ok: false, error: "database_error" },
+      500,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
+  }
 }
 
 /** GET /api/metrics -> real, aggregate-only metrics from D1. */
 async function metrics(env) {
-  const row = await env.DB.prepare(
-    `SELECT
-       (SELECT COUNT(*) FROM problems) AS problems_total,
-       (SELECT COUNT(*) FROM problems WHERE visibility='public' AND status IN ('framed','active')) AS problems_public_open,
-       (SELECT COUNT(*) FROM problems WHERE status='solved') AS problems_solved,
-       (SELECT COUNT(*) FROM projects) AS projects_total,
-       (SELECT COUNT(*) FROM projects WHERE status='approved') AS projects_approved,
-       (SELECT COUNT(*) FROM projects WHERE status='approved' AND stage IN ('live','scaled')) AS projects_live,
-       (SELECT COUNT(*) FROM projects WHERE status='approved' AND stage='pilot') AS projects_pilot,
-       (SELECT COUNT(*) FROM applications) AS applications_total,
-       (SELECT COUNT(*) FROM applications WHERE status='new') AS applications_new`,
-  ).first();
+  if (!env.DB) {
+    return json(
+      { ok: false, error: "database_not_configured" },
+      503,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
+  }
 
-  const payload = {
-    ok: true,
-    problems_total: Number(row?.problems_total || 0),
-    problems_public_open: Number(row?.problems_public_open || 0),
-    problems_solved: Number(row?.problems_solved || 0),
-    projects_total: Number(row?.projects_total || 0),
-    projects_approved: Number(row?.projects_approved || 0),
-    projects_live: Number(row?.projects_live || 0),
-    projects_pilot: Number(row?.projects_pilot || 0),
-    applications_total: Number(row?.applications_total || 0),
-    applications_new: Number(row?.applications_new || 0),
-  };
+  try {
+    const row = await env.DB.prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM problems) AS problems_total,
+         (SELECT COUNT(*) FROM problems WHERE visibility='public' AND status IN ('framed','active')) AS problems_public_open,
+         (SELECT COUNT(*) FROM problems WHERE status='solved') AS problems_solved,
+         (SELECT COUNT(*) FROM projects) AS projects_total,
+         (SELECT COUNT(*) FROM projects WHERE status='approved') AS projects_approved,
+         (SELECT COUNT(*) FROM projects WHERE status='approved' AND stage IN ('live','scaled')) AS projects_live,
+         (SELECT COUNT(*) FROM projects WHERE status='approved' AND stage='pilot') AS projects_pilot,
+         (SELECT COUNT(*) FROM applications) AS applications_total,
+         (SELECT COUNT(*) FROM applications WHERE status='new') AS applications_new`,
+    ).first();
 
-  // Reduce load with short cache (no PII, aggregates only).
-  return json(payload, 200, { "cache-control": "max-age=60, public" });
+    const payload = {
+      ok: true,
+      problems_total: Number(row?.problems_total || 0),
+      problems_public_open: Number(row?.problems_public_open || 0),
+      problems_solved: Number(row?.problems_solved || 0),
+      projects_total: Number(row?.projects_total || 0),
+      projects_approved: Number(row?.projects_approved || 0),
+      projects_live: Number(row?.projects_live || 0),
+      projects_pilot: Number(row?.projects_pilot || 0),
+      applications_total: Number(row?.applications_total || 0),
+      applications_new: Number(row?.applications_new || 0),
+    };
+
+    // Reduce load with short edge cache; allow stale while revalidating.
+    return json(payload, 200, {
+      "cache-control": "public, max-age=60, stale-while-revalidate=30",
+    });
+  } catch (err) {
+    console.error("metrics: query failed", err);
+    // Never cache error responses at the edge, and never fabricate 0s.
+    return json(
+      { ok: false, error: "database_error" },
+      500,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -486,6 +561,14 @@ async function metrics(env) {
 
 /** GET /api/problems -> public, framed/active problems, newest first. */
 async function listProblems(env, url) {
+  if (!env.DB) {
+    return json(
+      { ok: false, error: "database_not_configured" },
+      503,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
+  }
+
   const limit = asInt(url.searchParams.get("limit"), {
     min: 1,
     max: 100,
@@ -497,29 +580,41 @@ async function listProblems(env, url) {
     fallback: 0,
   });
 
-  const totalRow = await env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM problems WHERE ${PUBLIC_PROBLEM_WHERE}`,
-  ).first();
+  try {
+    const countStmt = env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM problems WHERE ${PUBLIC_PROBLEM_WHERE}`,
+    );
+    const listStmt = env.DB.prepare(
+      `SELECT ${PUBLIC_PROBLEM_FIELDS}
+         FROM problems
+        WHERE ${PUBLIC_PROBLEM_WHERE}
+        ORDER BY created_at DESC, id DESC
+        LIMIT ? OFFSET ?`,
+    ).bind(limit, offset);
 
-  const { results } = await env.DB.prepare(
-    `SELECT ${PUBLIC_PROBLEM_FIELDS}
-       FROM problems
-      WHERE ${PUBLIC_PROBLEM_WHERE}
-      ORDER BY created_at DESC, id DESC
-      LIMIT ? OFFSET ?`,
-  )
-    .bind(limit, offset)
-    .all();
+    const [totalRes, listRes] = await env.DB.batch([countStmt, listStmt]);
+    const totalRow = totalRes.results?.[0];
+    const problems = (listRes.results ?? []).map(publicProblem);
 
-  const problems = (results ?? []).map(publicProblem);
-
-  return json({
-    ok: true,
-    problems,
-    total: Number(totalRow?.n || 0),
-    limit,
-    offset,
-  });
+    return json(
+      {
+        ok: true,
+        problems,
+        total: Number(totalRow?.n || 0),
+        limit,
+        offset,
+      },
+      200,
+      { "cache-control": "public, max-age=60, stale-while-revalidate=30" },
+    );
+  } catch (err) {
+    console.error("problems: list failed", err);
+    return json(
+      { ok: false, error: "database_error" },
+      500,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
+  }
 }
 
 /** GET /api/problems/:slug -> one public problem. */
@@ -914,6 +1009,14 @@ async function handleFeedback(request, env, ctx) {
 
 /** GET /api/projects -> approved projects, newest/most-featured first. */
 async function listProjects(env, url) {
+  if (!env.DB) {
+    return json(
+      { ok: false, error: "database_not_configured" },
+      503,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
+  }
+
   const limit = asInt(url.searchParams.get("limit"), {
     min: 1,
     max: 200,
@@ -925,27 +1028,40 @@ async function listProjects(env, url) {
     fallback: 0,
   });
 
-  const totalRow = await env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM projects WHERE status = 'approved'`,
-  ).first();
+  try {
+    const countStmt = env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM projects WHERE status = 'approved'`,
+    );
+    const listStmt = env.DB.prepare(
+      `SELECT ${PUBLIC_PROJECT_FIELDS}
+         FROM projects
+        WHERE status = 'approved'
+        ORDER BY featured DESC, created_at DESC, id DESC
+        LIMIT ? OFFSET ?`,
+    ).bind(limit, offset);
 
-  const { results } = await env.DB.prepare(
-    `SELECT ${PUBLIC_PROJECT_FIELDS}
-       FROM projects
-      WHERE status = 'approved'
-      ORDER BY featured DESC, created_at DESC, id DESC
-      LIMIT ? OFFSET ?`,
-  )
-    .bind(limit, offset)
-    .all();
+    const [totalRes, listRes] = await env.DB.batch([countStmt, listStmt]);
+    const totalRow = totalRes.results?.[0];
 
-  return json({
-    ok: true,
-    projects: results ?? [],
-    total: Number(totalRow?.n || 0),
-    limit,
-    offset,
-  });
+    return json(
+      {
+        ok: true,
+        projects: listRes.results ?? [],
+        total: Number(totalRow?.n || 0),
+        limit,
+        offset,
+      },
+      200,
+      { "cache-control": "public, max-age=60, stale-while-revalidate=30" },
+    );
+  } catch (err) {
+    console.error("projects: list failed", err);
+    return json(
+      { ok: false, error: "database_error" },
+      500,
+      { "cache-control": "no-store, no-cache, must-revalidate" },
+    );
+  }
 }
 
 /** GET /api/projects/:slug -> a single approved project. */

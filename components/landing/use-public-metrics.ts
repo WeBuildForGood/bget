@@ -33,15 +33,18 @@ const NUMERIC_KEYS: (keyof PublicMetrics)[] = [
   "applications_new",
 ];
 
-// A module-level promise so several sections on the same page share one fetch.
+// A module-level cache and in-flight promise so several sections on the same page share one fetch.
 let inFlight: Promise<PublicMetrics | null> | null = null;
+let cachedData: PublicMetrics | null = null;
+let cachedAt = 0;
+const CACHE_TTL_MS = 60_000; // 60 seconds
 
-function load(): Promise<PublicMetrics | null> {
-  if (inFlight) return inFlight;
-  inFlight = fetch("/api/metrics", { headers: { accept: "application/json" } })
-    .then((res) =>
-      res.ok ? res.json() : Promise.reject(new Error(String(res.status))),
-    )
+function fetchMetricsWithRetry(retries = 2, delayMs = 1000): Promise<PublicMetrics | null> {
+  return fetch("/api/metrics", { headers: { accept: "application/json" } })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
     .then((data: unknown) => {
       const out: PublicMetrics = {};
       const record = (data ?? {}) as Record<string, unknown>;
@@ -51,9 +54,39 @@ function load(): Promise<PublicMetrics | null> {
           out[key] = value;
         }
       }
+      cachedData = out;
+      cachedAt = Date.now();
       return out;
     })
-    .catch(() => null);
+    .catch((_err): Promise<PublicMetrics | null> | null => {
+      if (retries > 0) {
+        return new Promise<PublicMetrics | null>((resolve) => {
+          setTimeout(() => {
+            resolve(fetchMetricsWithRetry(retries - 1, delayMs * 2));
+          }, delayMs);
+        });
+      }
+      return null;
+    });
+}
+
+function load(): Promise<PublicMetrics | null> {
+  const now = Date.now();
+  if (cachedData && now - cachedAt < CACHE_TTL_MS) {
+    return Promise.resolve(cachedData);
+  }
+  if (inFlight) return inFlight;
+
+  inFlight = fetchMetricsWithRetry()
+    .then((result) => {
+      inFlight = null; // Clear on completion so future calls after TTL can fetch fresh data
+      return result;
+    })
+    .catch(() => {
+      inFlight = null; // Always clear on failure so subsequent calls can retry
+      return null;
+    });
+
   return inFlight;
 }
 
@@ -62,8 +95,18 @@ export function usePublicMetrics(): {
   metrics: PublicMetrics | null;
   status: MetricsStatus;
 } {
-  const [metrics, setMetrics] = useState<PublicMetrics | null>(null);
-  const [status, setStatus] = useState<MetricsStatus>("loading");
+  const [metrics, setMetrics] = useState<PublicMetrics | null>(() => {
+    if (cachedData && Date.now() - cachedAt < CACHE_TTL_MS) {
+      return cachedData;
+    }
+    return null;
+  });
+  const [status, setStatus] = useState<MetricsStatus>(() => {
+    if (cachedData && Date.now() - cachedAt < CACHE_TTL_MS) {
+      return "ready";
+    }
+    return "loading";
+  });
 
   useEffect(() => {
     let alive = true;
@@ -72,12 +115,25 @@ export function usePublicMetrics(): {
       if (value) {
         setMetrics(value);
         setStatus("ready");
-      } else {
+      } else if (!cachedData) {
         setStatus("error");
       }
     });
+
+    const onOnline = () => {
+      load().then((value) => {
+        if (!alive) return;
+        if (value) {
+          setMetrics(value);
+          setStatus("ready");
+        }
+      });
+    };
+    window.addEventListener("online", onOnline);
+
     return () => {
       alive = false;
+      window.removeEventListener("online", onOnline);
     };
   }, []);
 

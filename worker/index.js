@@ -82,7 +82,8 @@ export default {
       // Rebuild the response with our headers. `response.body` is null for
       // bodiless statuses (204/304) and HEAD responses, which `new Response`
       // accepts with those statuses, so this is safe for every code path.
-      return new Response(response.body, {
+      const body = request.method === "HEAD" ? null : response.body;
+      return new Response(body, {
         status: response.status,
         statusText: response.statusText,
         headers,
@@ -91,7 +92,9 @@ export default {
       console.error("worker: unhandled error", err);
       const url = new URL(request.url);
       if (url.pathname.startsWith("/api/")) {
-        const errResp = json({ ok: false, error: "server_error" }, 500);
+        const errResp = json({ ok: false, error: "server_error" }, 500, {
+          "cache-control": "no-store, no-cache, must-revalidate",
+        });
         const headers = new Headers(errResp.headers);
         headers.set("X-Frame-Options", "DENY");
         headers.set("X-Content-Type-Options", "nosniff");
@@ -101,7 +104,10 @@ export default {
         headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none';");
         return new Response(errResp.body, { status: 500, headers });
       }
-      const headers = new Headers({ "content-type": "text/plain; charset=utf-8" });
+      const headers = new Headers({
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store, no-cache, must-revalidate",
+      });
       headers.set("X-Content-Type-Options", "nosniff");
       headers.set("X-Frame-Options", "DENY");
       headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");

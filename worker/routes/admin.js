@@ -330,29 +330,54 @@ function csrfReject(request, url) {
 /* Handlers                                                             */
 /* ------------------------------------------------------------------ */
 
-/** Counts per collection and per status. */
+/** Counts per collection and per status. Batched in 1 round-trip. */
 async function summary(env) {
-  const result = {};
+  if (!env.DB) {
+    return json({ ok: false, error: "database_not_configured" }, 503);
+  }
 
-  for (const [name, config] of Object.entries(COLLECTIONS)) {
-    const totalRow = await env.DB.prepare(
-      `SELECT COUNT(*) AS n FROM ${config.table}`,
-    ).first();
+  try {
+    const entries = Object.entries(COLLECTIONS);
+    const statements = [];
+    const meta = [];
 
-    const byStatus = {};
-    if (config.hasStatus !== false) {
-      const { results } = await env.DB.prepare(
-        `SELECT status, COUNT(*) AS n FROM ${config.table} GROUP BY status`,
-      ).all();
-      for (const row of results ?? []) {
-        byStatus[row.status ?? "unknown"] = row.n;
+    for (const [name, config] of entries) {
+      statements.push(env.DB.prepare(`SELECT COUNT(*) AS n FROM ${config.table}`));
+      meta.push({ name, type: "total" });
+
+      if (config.hasStatus !== false) {
+        statements.push(
+          env.DB.prepare(
+            `SELECT status, COUNT(*) AS n FROM ${config.table} GROUP BY status`,
+          ),
+        );
+        meta.push({ name, type: "status" });
       }
     }
 
-    result[name] = { total: totalRow?.n ?? 0, status: byStatus };
-  }
+    const batchResults = await env.DB.batch(statements);
+    const result = {};
+    for (const [name] of entries) {
+      result[name] = { total: 0, status: {} };
+    }
 
-  return json({ ok: true, summary: result });
+    for (let i = 0; i < batchResults.length; i++) {
+      const { name, type } = meta[i];
+      const res = batchResults[i];
+      if (type === "total") {
+        result[name].total = Number(res.results?.[0]?.n || 0);
+      } else if (type === "status") {
+        for (const row of res.results ?? []) {
+          result[name].status[row.status ?? "unknown"] = Number(row.n || 0);
+        }
+      }
+    }
+
+    return json({ ok: true, summary: result });
+  } catch (err) {
+    console.error("admin summary: batch query failed", err);
+    return json({ ok: false, error: "database_error" }, 500);
+  }
 }
 
 /**
@@ -545,11 +570,15 @@ async function update(request, env, config, id) {
 
   binds.push(id);
 
-  await env.DB.prepare(
+  const result = await env.DB.prepare(
     `UPDATE ${config.table} SET ${sets.join(", ")} WHERE id = ?`,
   )
     .bind(...binds)
     .run();
+
+  if ((result.meta?.changes ?? 0) === 0) {
+    return json({ ok: false, error: "not_found" }, 404);
+  }
 
   return json({ ok: true });
 }
@@ -595,13 +624,13 @@ async function bulkStatus(request, env, config) {
   if (config.reviewedAt) sets.push("reviewed_at = datetime('now')");
   binds.push(...ids);
 
-  await env.DB.prepare(
+  const result = await env.DB.prepare(
     `UPDATE ${config.table} SET ${sets.join(", ")} WHERE id IN (${placeholders})`,
   )
     .bind(...binds)
     .run();
 
-  return json({ ok: true, updated: ids.length });
+  return json({ ok: true, updated: result.meta?.changes ?? 0 });
 }
 
 /**

@@ -14,47 +14,87 @@ type Metric = {
 };
 
 function AnimatedNumber({ end, suffix = "", prefix = "" }: { end: number | null; suffix?: string; prefix?: string }) {
-  const [count, setCount] = useState(0);
-  const [isScrambling, setIsScrambling] = useState(true);
+  const [count, setCount] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const hasAnimatedRef = useRef(false);
 
   useEffect(() => {
     if (end === null) return;
     const target = end;
-    let rafId: number;
+
+    // Honor reduced-motion preference immediately
+    if (
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setCount(target);
+      hasAnimatedRef.current = true;
+      return;
+    }
+
+    if (hasAnimatedRef.current) {
+      setCount(target);
+      return;
+    }
+
+    let rafId: number | null = null;
+
+    const startAnimation = () => {
+      hasAnimatedRef.current = true;
+      const duration = Math.min(1000, Math.max(400, target * 80));
+      const startTime = performance.now();
+      const animate = (currentTime: number) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setCount(Math.round(eased * target));
+        if (progress < 1) {
+          rafId = requestAnimationFrame(animate);
+        } else {
+          setCount(target);
+        }
+      };
+      rafId = requestAnimationFrame(animate);
+    };
+
+    // Guaranteed fallback: if IntersectionObserver is delayed, throttled,
+    // or off-screen, display the real number within 600ms so the user
+    // NEVER sees a frozen dash or 0.
+    const fallbackTimer = setTimeout(() => {
+      if (!hasAnimatedRef.current) {
+        startAnimation();
+      }
+    }, 600);
+
+    if (typeof IntersectionObserver === "undefined") {
+      startAnimation();
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
-          const duration = 2500;
-          const startTime = performance.now();
-          const animate = (currentTime: number) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 4);
-            setCount(Math.floor(eased * target));
-            setIsScrambling(progress < 0.8);
-            if (progress < 1) {
-              rafId = requestAnimationFrame(animate);
-            }
-          };
-          rafId = requestAnimationFrame(animate);
+        if (entry.isIntersecting && !hasAnimatedRef.current) {
+          clearTimeout(fallbackTimer);
+          observer.disconnect();
+          startAnimation();
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.1, rootMargin: "50px 0px" }
     );
+
     if (ref.current) observer.observe(ref.current);
+
     return () => {
       observer.disconnect();
-      if (rafId) cancelAnimationFrame(rafId);
+      clearTimeout(fallbackTimer);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [end, hasAnimated]);
+  }, [end]);
 
-  // Honest empty state: while the value is unknown (loading or request failed)
-  // show a dash. Once the real number arrives this same node animates to it.
-  if (end === null) {
+  // Honest empty state: while value is loading, show dash.
+  // Once the real number arrives, show animated digits.
+  if (end === null || count === null) {
     return (
       <div
         ref={ref}
@@ -67,34 +107,17 @@ function AnimatedNumber({ end, suffix = "", prefix = "" }: { end: number | null;
   }
 
   const displayValue = count.toLocaleString();
-
-  // Reserve the width of the *final* value up-front. Without this, the digits
-  // grow as the counter animates (0 -> 12 -> 72), reflowing the row and
-  // contributing to layout shift. `ch` matches one tabular digit, and the
-  // single-character prefix/suffix each occupy one unit too.
-  const reservedCh =
-    end.toLocaleString().length + (prefix ? 1 : 0) + (suffix ? 1 : 0);
+  const reservedCh = end.toLocaleString().length + (prefix ? 1 : 0) + (suffix ? 1 : 0);
 
   return (
     <div
       ref={ref}
-      className="inline-flex items-baseline whitespace-nowrap"
+      className="inline-flex items-baseline whitespace-nowrap font-display"
       style={{ minWidth: `${reservedCh}ch` }}
     >
-      <span className="text-muted-foreground mr-1">{prefix}</span>
-      <span className="tabular-nums">
-        {displayValue.split("").map((char, i) => (
-          <span
-            key={i}
-            className={`inline-block transition-all duration-150 ${
-              isScrambling && char !== "," ? "blur-[1px]" : ""
-            }`}
-          >
-            {char}
-          </span>
-        ))}
-      </span>
-      <span className="text-muted-foreground">{suffix}</span>
+      {prefix && <span className="text-muted-foreground mr-1">{prefix}</span>}
+      <span className="tabular-nums">{displayValue}</span>
+      {suffix && <span className="text-muted-foreground ml-1">{suffix}</span>}
     </div>
   );
 }

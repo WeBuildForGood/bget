@@ -79,7 +79,7 @@ export async function handleRequest(request, env, ctx) {
  * @returns {string}
  */
 function allowForApiPath(pathname) {
-  if (pathname.startsWith("/api/admin/")) return "GET, PATCH, DELETE, POST, OPTIONS";
+  if (pathname.startsWith("/api/admin/") || pathname === "/api/admin") return "GET, PATCH, DELETE, POST, OPTIONS";
   if (pathname === "/api/projects" || pathname === "/api/problems") {
     return "GET, POST, OPTIONS";
   }
