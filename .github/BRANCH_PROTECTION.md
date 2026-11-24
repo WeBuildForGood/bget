@@ -1,110 +1,108 @@
-# 3-Tier Branch Architecture & Protection Rules
+# Branch model & protection rules
 
-This document specifies the professional branch promotion lifecycle and protection rules for the `bget-website` (`WeBuildForGood/bget`) repository.
+Repository: `WeBuildForGood/bget` · Canonical origin: **https://buildforgood.world**
 
----
+## 1. The three baselines
 
-## Architecture Overview
-
-```
-feature/* or fix/*  ──(PR)──►  dev (Local baseline)  ──(PR)──►  staging (Restricted Hosted)  ──(PR)──►  main (Production Live)
-```
-
-| Branch | Environment | Host URL | Database | Access Control |
+| Branch | Role | Host | Data | Who can reach it |
 |---|---|---|---|---|
-| **`main`** | Production | `https://buildforgood.world`<br>`https://www.buildforgood.world` | Cloudflare D1: `buildforgood-prod` | Public site; `/admin` gated by Cloudflare Access |
-| **`staging`** | Staging | `https://staging.buildforgood.world` | Cloudflare D1: `buildforgood-staging` | **Strictly Selective**: 100% gated via Cloudflare Zero Trust Access (team emails allowlist) |
-| **`dev`** | Local Integration | `http://localhost:3000` / `localhost:4321` | Local SQLite D1 emulator | Local developers only; never publicly exposed |
+| `main` | Production | https://buildforgood.world (+ www) | D1 `buildforgood-prod` | Public site; `/admin` behind Access |
+| `staging` | Release candidate / soak | https://staging.buildforgood.world | D1 `buildforgood-staging` | Cloudflare Access — allow **nikhilnagpure203@gmail.com only** |
+| `dev` | Integration + local baseline | none (never deployed) | local miniflare D1 (`.wrangler/state`) | Maintainer laptop only |
 
----
+Promotion is always forward and always a merge commit (never squash, never cherry-pick):
 
-## 1. Branch Rules
+```
+feat/*  fix/*  chore/*  ──PR──►  dev  ──PR──►  staging  ──PR──►  main
+```
 
-### `main` (Production)
-- **Deployment:** Automatically deploys to live Cloudflare production worker on push/merge.
-- **Rules:**
-  - **No direct push:** All changes must arrive via pull request from `staging`.
-  - **Required Reviews:** Minimum 1 peer approval required.
-  - **Required Status Checks:** Strict pass on CI `test` (`npm run typecheck`, `npm test`, static export build).
-  - **Conversation resolution:** All PR review discussions must be marked resolved.
-  - **Post-deploy:** Smoke tests against `https://buildforgood.world/api/health` must pass.
+Hotfix: `fix/* ──PR──► main`, then back-merge `main` into `staging` and `dev` the same day.
 
-### `staging` (Restricted Hosted Staging)
-- **Deployment:** Automatically deploys to `buildforgood-staging` on push/merge.
-- **Rules:**
-  - **No direct push:** All changes must arrive via pull request from `dev`.
-  - **Required Status Checks:** Strict pass on CI `test`.
-  - **Access Gate:** Site-wide Cloudflare Access Zero Trust policy restricts all access to approved team emails.
-  - **Data Isolation:** Uses dedicated D1 database `buildforgood-staging` (`db9f951c-1735-43e4-ac0e-a2bb0eb9f93f`).
+Merge commits keep `git merge-base --is-ancestor origin/staging origin/main` true, which is how you prove production contains exactly what staging tested.
 
-### `dev` (Local Development Integration)
-- **Deployment:** None (Local baseline only).
-- **Rules:**
-  - Feature branches (`feat/*`, `fix/*`) branch off `dev` and merge into `dev` via pull request.
-  - Required CI validation check on pull request.
-  - Force pushes restricted.
+## 2. Rules actually enforced (GitHub rulesets)
 
----
+| Rule | `main` | `staging` | `dev` |
+|---|---|---|---|
+| Pull request required | yes | yes | yes |
+| Required approvals | 0 \* | 0 \* | 0 \* |
+| Required status check | `Test` | `Test` | `Test` |
+| Conversation resolution | yes | yes | no |
+| Force push / branch deletion | blocked | blocked | blocked |
+| Rules apply to admins | yes | yes | yes |
 
-## 2. GitHub Branch Protection Setup
+\* **Solo-maintainer decision.** GitHub never lets a PR author approve their own PR. On a one-person repository a "1 approval" rule is therefore satisfied only by an admin bypass on every single merge — protection theatre, not protection. Mandatory PR + green `Test` + no force-push + no deletion is the honest configuration.
 
-Configure via GitHub CLI or **Repository Settings → Branches**:
+**When a second maintainer joins:** set `required_approving_review_count` to 1 on `main` and `staging`. Nothing else changes.
+
+Verify what is live:
 
 ```bash
-# Branch protection for main
-gh api -X PUT repos/WeBuildForGood/bget/branches/main/protection \
-  --input - <<EOF
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": ["test"]
-  },
-  "enforce_admins": false,
-  "required_pull_request_reviews": {
-    "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true
-  },
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false
-}
-EOF
-
-# Branch protection for staging
-gh api -X PUT repos/WeBuildForGood/bget/branches/staging/protection \
-  --input - <<EOF
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": ["test"]
-  },
-  "enforce_admins": false,
-  "required_pull_request_reviews": {
-    "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true
-  },
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false
-}
-EOF
+gh api repos/WeBuildForGood/bget/rulesets --jq '.[] | {name, enforcement, target}'
 ```
 
----
+## 3. Environments (GitHub)
 
-## 3. Cloudflare Access (Zero Trust) Staging Setup
+| Environment | Deployable from | Required reviewer |
+|---|---|---|
+| `production` | `main` only | none (solo) |
+| `staging` | `staging` only | none (solo) |
 
-To enforce **"only access to us selective people"** on the hosted staging environment:
+A deployment branch policy stops a misconfigured workflow from shipping an unrelated branch. Reviewer gates stay off while there is one maintainer (GitHub does not allow self-approval); turn them on together with the second-maintainer rule above.
 
-1. In the **Cloudflare Zero Trust Dashboard**:
-   * Navigate to **Access → Applications → Add an application**.
-   * Select **Self-hosted**.
-   * Application name: `Build For Good - Staging`.
-   * Application domain: `staging.buildforgood.world`.
-2. Add an **Access Policy**:
-   * Action: **Allow**.
-   * Rule configuration:
-     * **Include:** Emails / Email domain list (e.g., `shadownik.official@gmail.com`, `nikhilnagpure203@gmail.com`, or `@buildforgood.world`).
-     * Optional: Add Service Token (e.g. `bget-ci`) if CI automated tests need access to `/api/health`.
-3. In `wrangler.toml`:
-   * `[env.staging]` routes to `staging.buildforgood.world` with `workers_dev = false` so the public `workers.dev` origin cannot bypass the Access gate.
+## 4. Secrets
+
+- Repo secret `CF_API_TOKEN` — Cloudflare API token for the buildforgood account.
+- `CF_API_TOKEN_STAGING` (optional) — a token scoped to the `buildforgood-staging` Worker and staging D1 only. When present, use it in the staging deploy job instead of the production token.
+- `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` (optional) — Access service token so the staging smoke test can reach the site through Access.
+- Never commit tokens. `.env*` and `.dev.vars*` are gitignored.
+
+## 5. Staging access (Cloudflare Access) — REQUIRED
+
+Staging is deployed and **must not be reachable anonymously**. The API there is writable, and the D1 database is isolated but real.
+
+1. Zero Trust → Access → Applications → **Add an application** → Self-hosted.
+2. Application domain: `staging.buildforgood.world` (include the whole hostname, not just `/admin`).
+3. Policy: **Allow** → Include → **Emails** → `nikhilnagpure203@gmail.com`. No other include rule.
+4. Session duration: 24 hours.
+5. Optional for CI: create a service token `bget-ci`, add an **Allow → Service Token** rule, and store its Client ID / Secret as the two GitHub secrets above.
+6. Copy the application's **AUD** and set the Worker secrets (if/when the Worker verifies Access itself):
+
+   ```bash
+   npx wrangler secret put ACCESS_TEAM_DOMAIN --env staging
+   npx wrangler secret put ACCESS_AUD --env staging
+   ```
+
+7. Verify: an anonymous request must be redirected, never served.
+
+   ```bash
+   curl -sI https://staging.buildforgood.world/ | head -1   # expect 302, never 200
+   ```
+
+Until step 7 passes, treat staging as public: no real user data, no secrets, no customer information.
+
+## 6. Local baseline (the `dev` branch)
+
+`dev` is a real remote branch with **no deploy job**; the local environment is how it is exercised.
+
+```bash
+npm ci
+cp .dev.vars.example .dev.vars      # local salt; leave Access vars blank
+npm run db:migrate                  # migrations → .wrangler/state (local only)
+npm run db:seed                     # seed problems/projects (local only)
+npm run build                       # static export → out/
+npm run preview                     # wrangler dev → http://127.0.0.1:8787
+```
+
+`npm run db:reset` wipes the local state and re-migrates + re-seeds. Nothing in this flow can reach Cloudflare.
+
+## 7. Release checklist
+
+- [ ] PR into `dev` is green (`Test`).
+- [ ] PR `dev` → `staging`; merge; staging deploy succeeds.
+- [ ] Staging returns 302/401/403 anonymously — never 200.
+- [ ] `X-Robots-Tag: noindex` present on staging responses.
+- [ ] Soak on staging; exercise the changed flow.
+- [ ] PR `staging` → `main`; production deploy + smoke test green.
+- [ ] Tag the release: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
+- [ ] Back-merge `main` into `staging` and `dev`.

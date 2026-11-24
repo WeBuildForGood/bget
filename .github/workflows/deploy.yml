@@ -9,6 +9,12 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
 jobs:
   build:
     name: Build & Gate Artifact
@@ -142,14 +148,28 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
 
-      - name: Post-deploy health check (staging)
+      - name: Verify staging access gate
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
-          for attempt in 1 2 3 4 5; do
-            if curl -fsS https://staging.buildforgood.world/api/health; then
-              echo "Staging health check passed"
-              exit 0
+          set -euo pipefail
+          URL="https://staging.buildforgood.world/api/health"
+          if [ -n "${CF_ACCESS_CLIENT_ID:-}" ] && [ -n "${CF_ACCESS_CLIENT_SECRET:-}" ]; then
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
+              -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
+              -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}" "$URL" || true)
+            echo "authenticated request -> ${code}"
+            test "${code}" = "200"
+          else
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$URL" || true)
+            echo "anonymous request -> ${code}"
+            if [ "${code}" = "200" ]; then
+              echo "::error::staging is publicly reachable; Cloudflare Access is not protecting it."
+              exit 1
             fi
-            echo "Attempt ${attempt} failed; retrying in 5s..."
-            sleep 5
-          done
-          echo "Staging deploy finished (Note: gated with 302/401 when Cloudflare Zero Trust Access is enabled)"
+            case "${code}" in
+              301|302|303|307|308|401|403) echo "Access gate present." ;;
+              *) echo "::error::unexpected staging response ${code}"; exit 1 ;;
+            esac
+          fi

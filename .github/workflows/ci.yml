@@ -11,6 +11,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
 jobs:
   # NOTE: Keep the exact job id `test` and name `Test` — branch protection requires this check name.
   test:

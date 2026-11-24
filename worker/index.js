@@ -15,7 +15,7 @@ import { handleWwwRedirect } from "./redirect.js";
 export default {
   /**
    * @param {Request} request
-   * @param {{DB: D1Database, ASSETS: Fetcher, ACCESS_TEAM_DOMAIN?: string, ACCESS_AUD?: string, NOTIFY_WEBHOOK?: string, RESEND_API_KEY?: string, NOTIFY_EMAIL?: string, NOTIFY_FROM?: string, RATE_LIMIT_SALT?: string}} env
+   * @param {{DB: D1Database, ASSETS: Fetcher, ENVIRONMENT?: string, ACCESS_TEAM_DOMAIN?: string, ACCESS_AUD?: string, NOTIFY_WEBHOOK?: string, RESEND_API_KEY?: string, NOTIFY_EMAIL?: string, NOTIFY_FROM?: string, RATE_LIMIT_SALT?: string}} env
    * @param {ExecutionContext} ctx
    * @returns {Promise<Response>}
    */
@@ -49,6 +49,13 @@ export default {
       setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
       setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
 
+      // Non-production deployments (staging) are never indexed. Cloudflare
+      // Access is the primary gate; this is defence in depth so a misconfigured
+      // Access policy cannot leak a staging clone into search results.
+      if (env.ENVIRONMENT && env.ENVIRONMENT !== "production") {
+        setHeader("X-Robots-Tag", "noindex, nofollow");
+      }
+
       // Content-Security-Policy differs for API vs HTML.
       //
       // The API gets a strict CSP (no inline anything).
@@ -75,9 +82,6 @@ export default {
           "img-src 'self' data: https:;"
         );
       }
-
-      setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-      setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
 
       // Rebuild the response with our headers. `response.body` is null for
       // bodiless statuses (204/304) and HEAD responses, which `new Response`
