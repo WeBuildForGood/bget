@@ -3,9 +3,10 @@
 Build For Good is a Next.js 16 static export (`output: 'export'` → `out/`)
 served by a Cloudflare Worker (`worker/index.js`) that also exposes a JSON API
 and a Cloudflare Access-protected admin API, backed by Cloudflare D1
-(`buildforgood-prod`). Canonical origin: **https://buildforgood.world** (backup:
-https://buildforgood.shadownik.workers.dev). Read `README.md` for the full
-architecture and API surface, and `SECURITY.md` for the security posture.
+(`buildforgood-prod`). Canonical origin: **https://buildforgood.world**;
+`workers.dev` and preview URLs are disabled, so there is no public backup
+origin. Read `README.md` for the full architecture and API surface, and
+`SECURITY.md` for the security posture.
 
 ## Build & deploy sequence
 

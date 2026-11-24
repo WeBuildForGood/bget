@@ -10,7 +10,7 @@ rather than guessed.
 | --- | --- |
 | Canonical site (apex) | **https://buildforgood.world** |
 | `www` | https://www.buildforgood.world (also serves the site) |
-| Direct Worker URL (backup) | https://buildforgood.shadownik.workers.dev |
+| Staging | https://staging.buildforgood.world (Cloudflare Access) |
 
 ## Configuration (`wrangler.toml`)
 
@@ -19,9 +19,10 @@ rather than guessed.
 - **Compatibility date:** `2026-10-01`
 - **Account id:** `2eff373f1fc9834a686bfb5982b151b2`
 - **Custom domains:** `buildforgood.world`, `www.buildforgood.world`
-  (Cloudflare manages DNS + certificates); `workers_dev = true`
+  (Cloudflare manages DNS + certificates); `workers_dev = false`,
+  `preview_urls = false`
 - **Assets:** static export directory `./out`, binding `ASSETS`,
-  `not_found_handling = "404-page"`, `run_worker_first = ["/api/*", "/projects/*"]`
+  `not_found_handling = "404-page"`, `run_worker_first = true`
 - **D1:** binding `DB`, database `buildforgood-prod`
 - **Output:** `out/` — Next.js static export (`output: 'export'` in
   `next.config.mjs`)
@@ -36,9 +37,10 @@ npm run build            # Next.js static export → out/
 npx wrangler deploy      # upload assets + worker/index.js (== npm run deploy)
 ```
 
-CI (`.github/workflows/deploy.yml`) runs the same two steps on a push to `main`
-(`npm ci` → `npm run build` → `npx wrangler deploy`) and then checks
-`/api/health`.
+CI (`.github/workflows/deploy.yml`) builds `out/` once, uploads it as an
+artifact, and deploys that artifact on a push to `staging`
+(`wrangler deploy --env staging`) or `main` (`wrangler deploy`), then checks the
+environment's `/api/health` and smoke-tests the changed host.
 
 ## Live verification
 
@@ -59,9 +61,8 @@ build or deploy was run to produce this report):
 | `/api/admin/me` (no Access JWT) | 401 (expected — fails closed) |
 | `/sitemap.xml`, `/robots.txt`, `/manifest.webmanifest`, `/og.png` | 200 |
 
-Apex, `www`, and the direct Worker URL all returned 200, and `/api/health`
-returned 200 (with `"db":"ok"`) on both the canonical origin and the backup
-Worker URL.
+Apex and `www` both returned 200, and `/api/health` returned 200 with
+`"db":"ok"`.
 
 ### Security headers observed
 
@@ -82,8 +83,6 @@ The live responses carry the headers the repository ships:
   frame-ancestors 'none';` (no `'unsafe-inline'`), with the same
   `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and
   `Permissions-Policy` headers.
-
-The backup Worker URL returns the same API headers.
 
 ## Caveats (observed, not assumed)
 
