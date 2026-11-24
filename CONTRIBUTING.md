@@ -11,19 +11,22 @@ applies here.
 
 ## Getting started
 
-Requires Node ≥ 20.
+Requires Node ≥ 22.
 
 ```bash
-git clone https://github.com/webuildforgood.git
+git clone https://github.com/WeBuildForGood/bget.git
 cd bget
 npm ci
+cp .dev.vars.example .dev.vars   # local-only values
 
 # Frontend only (Next dev server — no /api/*; those live in the Worker):
 npm run dev
 
 # Full site + API locally, exactly as deployed:
-npm run build     # required: the Worker serves the static export from out/
-npm run preview   # wrangler dev  → http://127.0.0.1:8787
+npm run db:migrate                # local D1 schema
+npm run db:seed                   # local seed data
+npm run build                     # required: the Worker serves the static export from out/
+npm run preview                   # wrangler dev → http://127.0.0.1:8787
 ```
 
 `npm run dev` renders the pages but has **no** `/api/*` — use `npm run preview`
@@ -31,35 +34,33 @@ to exercise the forms and the Worker API end to end (with local D1).
 
 ## The flow: fork → branch → PR
 
-1. **Fork** the repository and create a branch from `main`:
+1. **Fork** the repository and create a branch from `dev`:
    ```bash
    git checkout -b fix/short-description
    ```
 2. **Make your changes.** Keep them scoped — one idea per pull request.
 3. **Check locally** (see below) before opening the PR.
-4. **Push and open a pull request** against `main`, and fill in the PR template
+4. **Push and open a pull request** against `dev`, and fill in the PR template
    (`.github/PULL_REQUEST_TEMPLATE.md`): what changed and *why*.
 5. **Respond to review.** Small, reviewable diffs get reviewed quickly.
 
-`main` is protected: CI must pass, at least one review is required, and direct
-pushes are not allowed.
+`dev`, `staging` and `main` are protected: a pull request is required, the
+`Test` check must pass, and force-pushes and branch deletion are blocked.
+Release promotion (`dev` → `staging` → `main`) is done by a maintainer.
 
 ## Checking your work locally
 
 Run these before opening a PR:
 
 ```bash
-# Unit tests (Node's built-in runner; covers worker/lib/*)
-npm test
-
-# Type-check
-npm run typecheck        # same as: npx tsc --noEmit
+# Unit tests + type-check (what `Test` runs before building)
+npm run check
 
 # The build gate CI enforces — a successful static export to out/
 npm run build
 
-# Optional: exercise the forms + API end to end (build first)
-npm run build && npm run preview
+# Optional: exercise the forms + API end to end against local D1
+npm run db:migrate && npm run db:seed && npm run build && npm run preview
 ```
 
 Notes on the commands:

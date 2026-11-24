@@ -231,13 +231,16 @@ valid (see `seed/README.md`).
 
 ## 6. Local development
 
-Requires Node ≥ 20 and a Cloudflare login (`npx wrangler login`).
+Requires Node ≥ 22. No Cloudflare login is needed for local work — everything
+below runs against `.wrangler/state` (local miniflare D1).
 
 ```bash
 npm ci
-npm run build          # static export → out/   (required before preview)
-npm run preview        # wrangler dev — serves out/ + /api/* with local D1
-# → http://127.0.0.1:8787
+cp .dev.vars.example .dev.vars   # local-only values; never real secrets
+npm run db:migrate               # apply migrations to the local D1
+npm run db:seed                  # seed problems + projects (local only)
+npm run build                    # static export → out/ (the Worker serves it)
+npm run preview                  # wrangler dev → http://127.0.0.1:8787
 ```
 
 `npm run dev` (Next dev server) renders the pages but has **no** `/api/*` (those
@@ -246,6 +249,9 @@ live in the Worker). Use `npm run preview` to exercise the forms end-to-end.
 `npm run build` is required before `npm run preview` because the Worker serves
 the static export from `out/`.
 
+`npm run db:reset` wipes `.wrangler/state`, re-migrates, and re-seeds. Every
+`db:*` script passes `--local`; none of them can reach Cloudflare.
+
 Other scripts (see `package.json`):
 
 | Script | Command | Notes |
@@ -253,6 +259,11 @@ Other scripts (see `package.json`):
 | `npm run dev` | `next dev` | Frontend only — no API |
 | `npm run build` | `next build` | Static export → `out/` |
 | `npm run preview` | `wrangler dev` | Full site + API, local D1 |
+| `npm run dev:worker` | `wrangler dev` | Alias of `preview` |
+| `npm run db:migrate` | `wrangler d1 migrations apply DB --local` | Apply migrations to the local D1 |
+| `npm run db:seed` | `node scripts/seed.mjs --yes --local` | Seed local problems/projects |
+| `npm run db:reset` | wipe state → migrate → seed | Rebuild the local database from scratch |
+| `npm run check` | `npm run typecheck && npm test` | The pre-build CI gate |
 | `npm run deploy` | `wrangler deploy` | Deploy the built Worker (run `build` first) |
 | `npm test` | `node --test tests/` | Unit tests for `worker/lib/*` (rate limit, slug, validation, mailing) |
 | `npm run lint` | `npm run typecheck` | Full project type-check |
@@ -279,18 +290,27 @@ NEXT_PUBLIC_SITE_URL="https://staging.buildforgood.world" npm run build
 npx wrangler deploy --env staging                                 # deploys to staging.buildforgood.world
 ```
 
-`wrangler.toml` enforces `workers_dev = false` and `preview_urls = false` to ensure traffic always enters via authorized custom domains with Cloudflare Access protection.
+`wrangler.toml` enforces `workers_dev = false` and `preview_urls = false` so traffic always enters through the custom domains that Cloudflare Access can protect. There is deliberately no public preview environment: a `workers.dev` deployment would bypass the staging Access policy.
+
+### Branches
+
+| Branch | Role | Host | Deploy |
+| --- | --- | --- | --- |
+| `main` | Production | `buildforgood.world` (+ `www`) | on push, via the `production` environment |
+| `staging` | Release candidate | `staging.buildforgood.world` | on push, via the `staging` environment |
+| `dev` | Integration + local baseline | none | never |
+
+Feature work merges into `dev` by pull request, then `dev` → `staging` → `main`. Full rules and the solo-maintainer review policy are in [`.github/BRANCH_PROTECTION.md`](.github/BRANCH_PROTECTION.md).
 
 ### CI/CD Architecture (`.github/workflows/`)
 
-- **`ci.yml`** — Canonical pull-request and push gate: `npm ci` → `npm test` → `npm run typecheck` → `npm run build`. Emits the required **`test`** status check expected by branch protection.
-- **`deploy.yml`** — Deployment pipeline: builds `out/` once in the `build` job, uploads it as an artifact, and downloads it in deployment jobs:
-  - `deploy-production` (pushes to `main`): deploys `npx wrangler deploy` to `buildforgood.world`.
-  - `deploy-staging` (pushes to `staging`): deploys `npx wrangler deploy --env staging` to `staging.buildforgood.world` with dedicated `buildforgood-staging` D1 database.
-- **`deploy-preview.yml`** — Automated ephemeral previews on pull requests using `buildforgood-staging`.
-- **`security.yml`** — Nightly automated vulnerability scan running `npm audit` and checking for outdated dependencies.
+- **`ci.yml`** — Pull-request and push gate: `npm ci` → `npm run typecheck` → `npm test` → `npm run build`. Emits the required **`Test`** status check used by branch protection.
+- **`deploy.yml`** — Deployment pipeline for `main` and `staging`. Builds `out/` once in the `build` job, uploads it as an artifact, and downloads it in deployment jobs:
+  - `deploy-production` (push to `main`): deploys `npx wrangler deploy` to `buildforgood.world`, then health-checks and smoke-tests the live site.
+  - `deploy-staging` (push to `staging`): deploys `npx wrangler deploy --env staging` to `staging.buildforgood.world` with the dedicated `buildforgood-staging` D1 database, then **fails if staging answers anonymously with 200** (i.e. if Cloudflare Access is missing).
+- **`security.yml`** — Nightly `npm audit` and outdated-dependency report; never a required check.
 
-Required GitHub secret: **`CF_API_TOKEN`** (Cloudflare API token with Workers Scripts and D1 edit permissions).
+Required GitHub secret: **`CF_API_TOKEN`** (Cloudflare API token with Workers Scripts and D1 edit permissions). Optional: `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` (an Access service token, so the staging smoke test can authenticate through Access).
 
 ### Rollback
 

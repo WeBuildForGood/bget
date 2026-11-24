@@ -1,20 +1,25 @@
 ## What changed
 
-<!-- A sentence or two describing the change. -->
+<!-- One or two sentences. -->
 
 ## Why
 
-<!-- What problem does this solve? Link the issue if there is one: Fixes #123 -->
+<!-- The problem this solves. Link the issue: Fixes #123 -->
 
-## Checklist
+## Verification
 
-- [ ] Tests pass locally (`python3 tests/static_check.py` and `python3 tests/smoke.py`)
-- [ ] No console errors when loading the affected pages (DevTools Console + Network)
-- [ ] Only relative paths used (no `/root-absolute` href/src — the site lives at a subpath)
-- [ ] Shared-chrome markers kept if header/footer were touched (`SHARED:HEADER` / `SHARED:FOOTER`, balanced and in order, on all pages)
-- [ ] Docs updated (`README.md` / `CONTRIBUTING.md`) if behaviour, commands or structure changed
+- [ ] `npm test` passes
+- [ ] `npm run typecheck` passes
+- [ ] `npm run build` succeeds (static export → `out/`)
+- [ ] Manually exercised the changed flow with `npm run preview` (local D1 + `/api/*`)
+- [ ] No console errors on the affected pages
 
-## Screenshots
+## Scope
 
-Not needed for this change — include them only if you changed visual design,
-and then before/after shots help.
+- [ ] One focused change; no unrelated refactors or formatting
+- [ ] No secrets, tokens, or `.env*` files committed
+- [ ] Docs updated if commands, routes, or behaviour changed
+
+## Notes for the reviewer
+
+<!-- Anything risky, a rollback note, or a follow-up you deliberately left out. -->
